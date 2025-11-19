@@ -71,13 +71,15 @@ TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, MatmulFromPic) {
 
 const std::array<TestType, 3> kTestParam = {std::make_tuple(3, "3"), std::make_tuple(5, "5"), std::make_tuple(7, "7")};
 
-const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),
-                   ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationSEQ, InType>(kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration));
+const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(
+                                               kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),
+                                           ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationSEQ, InType>(
+                                               kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = IskhakovDTrapezoidalIntegrationFuncTests::PrintFuncTestName<IskhakovDTrapezoidalIntegrationFuncTests>;
+const auto kPerfTestName =
+    IskhakovDTrapezoidalIntegrationFuncTests::PrintFuncTestName<IskhakovDTrapezoidalIntegrationFuncTests>;
 
 INSTANTIATE_TEST_SUITE_P(PicMatrixTests, IskhakovDTrapezoidalIntegrationFuncTests, kGtestValues, kPerfTestName);
 

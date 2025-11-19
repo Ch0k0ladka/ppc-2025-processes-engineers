@@ -29,7 +29,8 @@ TEST_P(IskhakovDTrapezoidalIntegrationPerfTests, RunPerfModes) {
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, IskhakovDTrapezoidalIntegrationMPI, IskhakovDTrapezoidalIntegrationSEQ>(PPC_SETTINGS_iskhakov_d_trapezoidal_integration);
+    ppc::util::MakeAllPerfTasks<InType, IskhakovDTrapezoidalIntegrationMPI, IskhakovDTrapezoidalIntegrationSEQ>(
+        PPC_SETTINGS_iskhakov_d_trapezoidal_integration);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
