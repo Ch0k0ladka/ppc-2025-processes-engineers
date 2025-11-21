@@ -10,15 +10,11 @@ namespace iskhakov_d_trapezoidal_integration {
 class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
   InType input_data_{};
 
-  static double TestFunctionPerf(double x) {
-    return x * x * x * std::sin(x) + 2.0 * std::cos(x);
-  }
-
   void SetUp() override {
     input_data_.lower_level = 0.0;
     input_data_.top_level = 1.0;
     input_data_.number_steps = 1000000;
-    input_data_.function = TestFunctionPerf;
+    std::function<double(double)> function = [](double x) { return x * x * x * std::sin(x) + 2.0 * std::cos(x); };
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
