@@ -57,13 +57,13 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
  private:
   InType input_data_;
   double result;
+
+  static double InFunction(double x) {
+    return x * x * x * std::sin(x) + 2.0 * std::cos(x);
+  }
 };
 
 namespace {
-
-static double InFunction(double x) {
-  return x * x * x * std::sin(x) + 2.0 * std::cos(x);
-}
 
 InType CreateTestData(double low_l, double top_l, int steps) {
   InType input;
