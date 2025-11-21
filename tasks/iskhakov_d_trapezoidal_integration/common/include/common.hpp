@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <tuple>
 
@@ -7,9 +8,16 @@
 
 namespace iskhakov_d_trapezoidal_integration {
 
-using InType = int;
-using OutType = int;
-using TestType = std::tuple<int, std::string>;
+struct InType {
+  double lower_level;
+  double top_level;
+  std::function<double(double)> function;
+  int number_steps;
+};
+
+using OutType = double;
+
+using TestType = std::tuple<InType, double>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
 }  // namespace iskhakov_d_trapezoidal_integration

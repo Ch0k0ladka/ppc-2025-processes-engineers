@@ -2,8 +2,8 @@
 
 #include <mpi.h>
 
+#include <cmath>
 #include <numeric>
-#include <vector>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
 #include "util/include/util.hpp"
@@ -17,56 +17,61 @@ IskhakovDTrapezoidalIntegrationMPI::IskhakovDTrapezoidalIntegrationMPI(const InT
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+  auto &input = GetInput();
+
+  return (input.lower_level < input.top_level) && (input.number_steps > 0);
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
-  auto input = GetInput();
-  if (input == 0) {
-    return false;
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  int world_size = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  double lower_level = 0.0, top_level = 0.0;
+  int number_steps = 0;
+  double local_sum = 0.0;
+
+  auto &input = GetInput();
+
+  if (world_rank == 0) {
+    lower_level = input.lower_level;
+    top_level = input.top_level;
+    number_steps = input.number_steps;
   }
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
-      }
-    }
+  MPI_Bcast(&lower_level, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&top_level, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&number_steps, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  auto &input_function = input.function;
+  double step = (top_level - lower_level) / number_steps;
+
+  if (world_rank == 0) {
+    local_sum = (input_function(lower_level) + input_function(top_level)) / 2.0;
   }
 
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
-
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  if (rank == 0) {
-    GetOutput() /= num_threads;
-  } else {
-    int counter = 0;
-    for (int i = 0; i < num_threads; i++) {
-      counter++;
-    }
-
-    if (counter != 0) {
-      GetOutput() /= counter;
-    }
+  for (int i = world_rank + 1; i < number_steps; i += world_size) {
+    local_sum += input_function(lower_level + step * i);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  return GetOutput() > 0;
+  local_sum *= step;
+
+  double result;
+  MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  GetOutput() = result;
+
+  return true;
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace iskhakov_d_trapezoidal_integration

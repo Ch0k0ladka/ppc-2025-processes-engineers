@@ -23,36 +23,27 @@ namespace iskhakov_d_trapezoidal_integration {
 class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+    const auto &[input, expected] = test_param;
+
+    int low_l = static_cast<int>(input.lower_level);
+    int top_l = static_cast<int>(input.top_level);
+
+    return "FROM_" + std::to_string(low_l) + "_TO_" + std::to_string(top_l);
   }
 
  protected:
   void SetUp() override {
-    int width = -1;
-    int height = -1;
-    int channels = -1;
-    std::vector<uint8_t> img;
-    // Read image in RGB to ensure consistent channel count
-    {
-      std::string abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_iskhakov_d_trapezoidal_integration, "pic.jpg");
-      auto *data = stbi_load(abs_path.c_str(), &width, &height, &channels, STBI_rgb);
-      if (data == nullptr) {
-        throw std::runtime_error("Failed to load image: " + std::string(stbi_failure_reason()));
-      }
-      channels = STBI_rgb;
-      img = std::vector<uint8_t>(data, data + (static_cast<ptrdiff_t>(width * height * channels)));
-      stbi_image_free(data);
-      if (std::cmp_not_equal(width, height)) {
-        throw std::runtime_error("width != height: ");
-      }
-    }
-
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = width - height + std::min(std::accumulate(img.begin(), img.end(), 0), channels);
+    const auto &[input, expected] = params;
+    input_data_ = input;
+    result = expected;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return (input_data_ == output_data);
+    double expected = result;
+
+    double relative_error = std::abs(output_data - expected) / std::abs(expected);
+    return relative_error < 0.01;
   }
 
   InType GetTestInputData() final {
@@ -60,16 +51,32 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
+  double result;
 };
 
 namespace {
 
-TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, MatmulFromPic) {
+static double TestFunctionFunc(double x) {
+  return x * x * x * std::sin(x) + 2.0 * std::cos(x);
+}
+
+InType CreateTestData(double low_l, double top_l, int steps) {
+  InType input;
+  input.lower_level = low_l;
+  input.top_level = top_l;
+  input.number_steps = steps;
+  input.function = TestFunctionFunc;
+  return input;
+}
+
+TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, TrapezoidalIntegration) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(3, "3"), std::make_tuple(5, "5"), std::make_tuple(7, "7")};
+const std::array<TestType, 3> kTestParam = {std::make_tuple(CreateTestData(0.0, 1.0, 10000), 1.8600),
+                                            std::make_tuple(CreateTestData(0.0, 2.0, 20000), 5.6100),
+                                            std::make_tuple(CreateTestData(1.0, 3.0, 30000), 10.2953)};
 
 const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(
                                                kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),

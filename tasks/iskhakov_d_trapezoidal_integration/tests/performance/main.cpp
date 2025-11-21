@@ -8,15 +8,23 @@
 namespace iskhakov_d_trapezoidal_integration {
 
 class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kCount_ = 100;
   InType input_data_{};
 
+  static double TestFunctionPerf(double x) {
+    return x * x * x * std::sin(x) + 2.0 * std::cos(x);
+  }
+
   void SetUp() override {
-    input_data_ = kCount_;
+    input_data_.lower_level = 0.0;
+    input_data_.top_level = 1.0;
+    input_data_.number_steps = 1000000;
+    input_data_.function = TestFunctionPerf;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return input_data_ == output_data;
+    double expected = 1.8600;
+    double error = std::abs(output_data - expected) / std::abs(expected);
+    return error < 0.01;
   }
 
   InType GetTestInputData() final {

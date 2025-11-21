@@ -1,7 +1,7 @@
 #include "iskhakov_d_trapezoidal_integration/seq/include/ops_seq.hpp"
 
+#include <cmath>
 #include <numeric>
-#include <vector>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
 #include "util/include/util.hpp"
@@ -15,46 +15,40 @@ IskhakovDTrapezoidalIntegrationSEQ::IskhakovDTrapezoidalIntegrationSEQ(const InT
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+  auto &input = GetInput();
+
+  return (input.lower_level < input.top_level) && (input.number_steps > 0);
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+  return GetOutput() == 0.0;
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::RunImpl() {
-  if (GetInput() == 0) {
-    return false;
+  auto &input = GetInput();
+
+  double lower_level = input.lower_level;
+  double top_level = input.top_level;
+  auto &input_function = input.function;
+  int number_steps = input.number_steps;
+
+  double result = 0.0;
+  double step = (top_level - lower_level) / number_steps;
+
+  result = (input_function(lower_level) + input_function(top_level)) / 2.0;
+
+  for (int i = 1; i < number_steps; i++) {
+    result += input_function(lower_level + step * i);
   }
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
-      }
-    }
-  }
+  result *= step;
+  GetOutput() = result;
 
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
-
-  int counter = 0;
-  for (int i = 0; i < num_threads; i++) {
-    counter++;
-  }
-
-  if (counter != 0) {
-    GetOutput() /= counter;
-  }
-  return GetOutput() > 0;
+  return true;
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace iskhakov_d_trapezoidal_integration
