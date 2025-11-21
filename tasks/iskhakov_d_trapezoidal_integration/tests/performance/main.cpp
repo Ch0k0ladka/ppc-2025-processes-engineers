@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include <functional>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
