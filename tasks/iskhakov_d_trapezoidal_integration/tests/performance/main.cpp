@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <functional>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
 #include "iskhakov_d_trapezoidal_integration/mpi/include/ops_mpi.hpp"
@@ -11,10 +12,7 @@ class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTe
   InType input_data_{};
 
   void SetUp() override {
-    input_data_.lower_level = 0.0;
-    input_data_.top_level = 1.0;
-    input_data_.number_steps = 1000000;
-    input_data_.function = InFunction;
+    input_data_ = std::make_tuple(0.0, 1.0, InFunction, 1000000);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {

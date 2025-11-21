@@ -1,5 +1,4 @@
 #include "iskhakov_d_trapezoidal_integration/seq/include/ops_seq.hpp"
-
 #include <cmath>
 #include <numeric>
 
@@ -15,9 +14,13 @@ IskhakovDTrapezoidalIntegrationSEQ::IskhakovDTrapezoidalIntegrationSEQ(const InT
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::ValidationImpl() {
-  auto &input = GetInput();
+  auto& input = GetInput();
 
-  return (input.lower_level < input.top_level) && (input.number_steps > 0);
+  double lower_level = std::get<0>(input);
+  double top_level = std::get<1>(input);
+  int number_steps = std::get<3>(input);
+
+  return (lower_level < top_level) && (number_steps > 0);
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::PreProcessingImpl() {
@@ -25,12 +28,12 @@ bool IskhakovDTrapezoidalIntegrationSEQ::PreProcessingImpl() {
 }
 
 bool IskhakovDTrapezoidalIntegrationSEQ::RunImpl() {
-  auto &input = GetInput();
+  auto& input = GetInput();
 
-  double lower_level = input.lower_level;
-  double top_level = input.top_level;
-  auto &input_function = input.function;
-  int number_steps = input.number_steps;
+  double lower_level = std::get<0>(input);
+  double top_level = std::get<1>(input);
+  auto input_function = std::get<2>(input); 
+  int number_steps = std::get<3>(input);
 
   double result = 0.0;
   double step = (top_level - lower_level) / number_steps;

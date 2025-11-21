@@ -8,16 +8,9 @@
 
 namespace iskhakov_d_trapezoidal_integration {
 
-struct InType {
-  double lower_level;
-  double top_level;
-  std::function<double(double)> function;
-  int number_steps;
-};
-
+using InType = std::tuple<double, double, std::function<double(double)>, int>;
 using OutType = double;
-
-using TestType = std::tuple<InType, double>;
+using TestType = std::tuple<InType, OutType>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
 }  // namespace iskhakov_d_trapezoidal_integration

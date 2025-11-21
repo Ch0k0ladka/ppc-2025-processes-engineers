@@ -23,10 +23,14 @@ namespace iskhakov_d_trapezoidal_integration {
 class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    const auto &[input, expected] = test_param;
 
-    int low_l = static_cast<int>(input.lower_level);
-    int top_l = static_cast<int>(input.top_level);
+    const auto &[input, expected_result] = test_param;
+
+    double lower_level = std::get<0>(input);
+    double top_level = std::get<1>(input);
+
+    int low_l = static_cast<int>(lower_level);
+    int top_l = static_cast<int>(top_level);
 
     return "FROM_" + std::to_string(low_l) + "_TO_" + std::to_string(top_l);
   }
@@ -34,19 +38,16 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
  protected:
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    const auto &[input, expected] = params;
+    const auto &[input, expected_result] = params;
 
     input_data_ = input;
-
-    input_data_.function = InFunction;
-
-    result = expected;
+    result = expected_result;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    double expected = result;
+    double expected_result = result;
 
-    double relative_error = std::abs(output_data - expected) / std::abs(expected);
+    double relative_error = std::abs(output_data - expected_result) / std::abs(expected_result);
     return relative_error < 0.01;
   }
 
@@ -57,34 +58,33 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
  private:
   InType input_data_;
   double result;
-
-  static double InFunction(double x) {
-    return x * x * x * std::sin(x) + 2.0 * std::cos(x);
-  }
 };
 
 namespace {
 
+double InFunction(double x) {
+  return x * x * x * std::sin(x) + 2.0 * std::cos(x);
+}
+
 InType CreateTestData(double low_l, double top_l, int steps) {
-  InType input;
-  input.lower_level = low_l;
-  input.top_level = top_l;
-  input.number_steps = steps;
-  return input;
+  return std::make_tuple(low_l, top_l, InFunction, steps);
 }
 
 TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, TrapezoidalIntegration) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(CreateTestData(0.0, 1.0, 10000), 1.8600),
-                                            std::make_tuple(CreateTestData(0.0, 2.0, 20000), 5.6100),
-                                            std::make_tuple(CreateTestData(1.0, 3.0, 30000), 10.2953)};
+const std::array<TestType, 3> kTestParam = {
+    std::make_tuple(CreateTestData(0.0, 1.0, 10000), 1.8600),
+    std::make_tuple(CreateTestData(0.0, 2.0, 20000), 5.6100),
+    std::make_tuple(CreateTestData(1.0, 3.0, 30000), 10.2953)
+};
 
-const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(
-                                               kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),
-                                           ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationSEQ, InType>(
-                                               kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration));
+const auto kTestTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(
+        kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),
+    ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationSEQ, InType>(
+        kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 

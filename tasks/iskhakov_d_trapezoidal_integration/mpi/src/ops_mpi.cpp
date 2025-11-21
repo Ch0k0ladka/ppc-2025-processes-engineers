@@ -1,9 +1,8 @@
 #include "iskhakov_d_trapezoidal_integration/mpi/include/ops_mpi.hpp"
-
 #include <mpi.h>
-
 #include <cmath>
 #include <numeric>
+#include <tuple>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
 #include "util/include/util.hpp"
@@ -17,9 +16,12 @@ IskhakovDTrapezoidalIntegrationMPI::IskhakovDTrapezoidalIntegrationMPI(const InT
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::ValidationImpl() {
-  auto &input = GetInput();
+  auto& input = GetInput();
+  double lower_level = std::get<0>(input);
+  double top_level = std::get<1>(input);
+  int number_steps = std::get<3>(input);
 
-  return (input.lower_level < input.top_level) && (input.number_steps > 0);
+  return (lower_level < top_level) && (number_steps > 0);
 }
 
 bool IskhakovDTrapezoidalIntegrationMPI::PreProcessingImpl() {
@@ -33,23 +35,24 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
   int world_size = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  double lower_level = 0.0, top_level = 0.0;
-  int number_steps = 0;
+  auto& input = GetInput();
+
+  double lower_level, top_level;
+  int number_steps;
   double local_sum = 0.0;
 
-  auto &input = GetInput();
-
   if (world_rank == 0) {
-    lower_level = input.lower_level;
-    top_level = input.top_level;
-    number_steps = input.number_steps;
-  }
+    lower_level = std::get<0>(input);
+    top_level = std::get<1>(input);
+    number_steps = std::get<3>(input);
+  }  
 
   MPI_Bcast(&lower_level, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&top_level, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&number_steps, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  auto &input_function = input.function;
+  auto input_function = std::get<2>(input); 
+
   double step = (top_level - lower_level) / number_steps;
 
   if (world_rank == 0) {
