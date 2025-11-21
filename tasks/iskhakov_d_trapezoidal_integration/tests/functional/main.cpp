@@ -47,7 +47,7 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   }
 
  private:
-  InType input_data_; 
+  InType input_data_;
   double expected_result_{};
 };
 
