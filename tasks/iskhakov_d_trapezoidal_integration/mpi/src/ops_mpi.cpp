@@ -39,8 +39,9 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
 
   auto &input = GetInput();
 
-  double lower_level, top_level;
-  int number_steps;
+  double lower_level = 0.0;
+  double top_level = 0.0;
+  int number_steps = 0;
   double local_sum = 0.0;
 
   if (world_rank == 0) {
@@ -55,19 +56,19 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
 
   auto input_function = std::get<2>(input);
 
-  double step = (top_level - lower_level) / number_steps;
+  double step = (top_level - lower_level) / static_cast<double>(number_steps);
 
   if (world_rank == 0) {
     local_sum = (input_function(lower_level) + input_function(top_level)) / 2.0;
   }
 
-  for (int i = world_rank + 1; i < number_steps; i += world_size) {
-    local_sum += input_function(lower_level + step * i);
+  for (int step_index = world_rank + 1; step_index < number_steps; step_index += world_size) {
+    local_sum += input_function(lower_level + step * step_index);
   }
 
   local_sum *= step;
 
-  double result;
+  double result = 0.0;
   MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   GetOutput() = result;

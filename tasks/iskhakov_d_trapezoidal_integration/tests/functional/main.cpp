@@ -1,12 +1,10 @@
 #include <gtest/gtest.h>
-#include <stb/stb_image.h>
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <numeric>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -28,10 +26,10 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
     double lower_level = std::get<0>(input);
     double top_level = std::get<1>(input);
 
-    int low_l = static_cast<int>(lower_level);
-    int top_l = static_cast<int>(top_level);
+    int lower_level_int = static_cast<int>(lower_level);
+    int top_level_int = static_cast<int>(top_level);
 
-    return "FROM_" + std::to_string(low_l) + "_TO_" + std::to_string(top_l);
+    return "FROM_" + std::to_string(lower_level_int) + "_TO_" + std::to_string(top_level_int);
   }
 
  protected:
@@ -40,13 +38,11 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
     const auto &[input, expected_result] = params;
 
     input_data_ = input;
-    result = expected_result;
+    expected_result_ = expected_result;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    double expected_result = result;
-
-    double relative_error = std::abs(output_data - expected_result) / std::abs(expected_result);
+    double relative_error = std::abs(output_data - expected_result_) / std::abs(expected_result_);
     return relative_error < 0.01;
   }
 
@@ -56,7 +52,7 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
 
  private:
   InType input_data_;
-  double result;
+  double expected_result_;
 };
 
 namespace {
@@ -65,8 +61,8 @@ double InFunction(double x) {
   return x * x * x * std::sin(x) + 2.0 * std::cos(x);
 }
 
-InType CreateTestData(double low_l, double top_l, int steps) {
-  return std::make_tuple(low_l, top_l, InFunction, steps);
+InType CreateTestData(double lower_level, double top_level, int steps) {
+  return std::make_tuple(lower_level, top_level, InFunction, steps);
 }
 
 TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, TrapezoidalIntegration) {

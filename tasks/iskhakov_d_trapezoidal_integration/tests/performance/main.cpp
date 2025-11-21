@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <functional>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
@@ -10,16 +11,17 @@
 namespace iskhakov_d_trapezoidal_integration {
 
 class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  InType input_data_{};
-
+ protected:
   void SetUp() override {
     input_data_ = std::make_tuple(0.0, 1.0, InFunction, 1000000);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    double expected = 1.8600;
-    double error = std::abs(output_data - expected) / std::abs(expected);
-    return error < 0.01;
+    constexpr double kExpectedResult = 1.8600;
+    constexpr double kRelativeTolerance = 0.01;
+
+    double relative_error = std::abs(output_data - kExpectedResult) / std::abs(kExpectedResult);
+    return relative_error < kRelativeTolerance;
   }
 
   InType GetTestInputData() final {
@@ -27,6 +29,8 @@ class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTe
   }
 
  private:
+  InType input_data_{};
+
   static double InFunction(double x) {
     return x * x * x * std::sin(x) + 2.0 * std::cos(x);
   }

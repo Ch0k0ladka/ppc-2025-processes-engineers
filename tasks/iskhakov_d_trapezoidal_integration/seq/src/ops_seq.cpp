@@ -37,12 +37,12 @@ bool IskhakovDTrapezoidalIntegrationSEQ::RunImpl() {
   int number_steps = std::get<3>(input);
 
   double result = 0.0;
-  double step = (top_level - lower_level) / number_steps;
+  double step = (top_level - lower_level) / static_cast<double>(number_steps);
 
   result = (input_function(lower_level) + input_function(top_level)) / 2.0;
 
-  for (int i = 1; i < number_steps; i++) {
-    result += input_function(lower_level + step * i);
+  for (int step_index = 1; step_index < number_steps; ++step_index) {
+    result += input_function(lower_level + step * step_index);
   }
 
   result *= step;
