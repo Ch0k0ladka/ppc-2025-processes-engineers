@@ -10,7 +10,7 @@
 #include "iskhakov_d_trapezoidal_integration/mpi/include/ops_mpi.hpp"
 #include "iskhakov_d_trapezoidal_integration/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"  // Добавлен для ppc::util::GTestParamIndex
+#include "util/include/util.hpp"
 
 namespace iskhakov_d_trapezoidal_integration {
 
@@ -47,7 +47,7 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   }
 
  private:
-  InType input_data_;  // Убрана избыточная инициализация {}
+  InType input_data_; 
   double expected_result_{};
 };
 
