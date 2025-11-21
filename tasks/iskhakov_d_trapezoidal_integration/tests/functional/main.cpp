@@ -37,22 +37,22 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const auto &[input, expected_result] = params;
 
-    input_data = input;
-    expected_result_value = expected_result;
+    input_data_ = input;
+    expected_result_ = expected_result;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    double relative_error = std::abs(output_data - expected_result_value) / std::abs(expected_result_value);
+    double relative_error = std::abs(output_data - expected_result_) / std::abs(expected_result_);
     return relative_error < 0.01;
   }
 
   InType GetTestInputData() final {
-    return input_data;
+    return input_data_;
   }
 
  private:
-  InType input_data;
-  double expected_result_value;
+  InType input_data_;
+  double expected_result_;
 };
 
 namespace {
