@@ -1,20 +1,15 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <numeric>
 #include <string>
 #include <tuple>
-#include <utility>
-#include <vector>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
 #include "iskhakov_d_trapezoidal_integration/mpi/include/ops_mpi.hpp"
 #include "iskhakov_d_trapezoidal_integration/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace iskhakov_d_trapezoidal_integration {
 
@@ -51,14 +46,14 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   }
 
  private:
-  InType input_data_;
-  double expected_result_;
+  InType input_data_{};
+  double expected_result_{};
 };
 
 namespace {
 
 double InFunction(double x) {
-  return x * x * x * std::sin(x) + 2.0 * std::cos(x);
+  return ((x * x * x) * std::sin(x)) + (2.0 * std::cos(x));
 }
 
 InType CreateTestData(double lower_level, double top_level, int steps) {

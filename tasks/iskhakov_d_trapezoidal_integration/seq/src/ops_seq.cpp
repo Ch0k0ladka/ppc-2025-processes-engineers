@@ -1,10 +1,8 @@
 #include "iskhakov_d_trapezoidal_integration/seq/include/ops_seq.hpp"
 
 #include <cmath>
-#include <numeric>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace iskhakov_d_trapezoidal_integration {
 
@@ -42,7 +40,7 @@ bool IskhakovDTrapezoidalIntegrationSEQ::RunImpl() {
   result = (input_function(lower_level) + input_function(top_level)) / 2.0;
 
   for (int step_index = 1; step_index < number_steps; ++step_index) {
-    result += input_function(lower_level + step * step_index);
+    result += input_function(lower_level + (step * step_index));
   }
 
   result *= step;

@@ -3,11 +3,9 @@
 #include <mpi.h>
 
 #include <cmath>
-#include <numeric>
 #include <tuple>
 
 #include "iskhakov_d_trapezoidal_integration/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace iskhakov_d_trapezoidal_integration {
 
@@ -63,7 +61,7 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
   }
 
   for (int step_index = world_rank + 1; step_index < number_steps; step_index += world_size) {
-    local_sum += input_function(lower_level + step * step_index);
+    local_sum += input_function(lower_level + (step * step_index));
   }
 
   local_sum *= step;
