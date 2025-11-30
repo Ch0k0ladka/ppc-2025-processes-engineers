@@ -13,7 +13,7 @@ namespace iskhakov_d_trapezoidal_integration {
 class IskhakovDTrapezoidalIntegrationPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    input_data_ = std::make_tuple(0.0, 1.0, InFunction, 1000000);
+    input_data_ = std::make_tuple(0.0, 1.0, InFunction, 10000000);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {

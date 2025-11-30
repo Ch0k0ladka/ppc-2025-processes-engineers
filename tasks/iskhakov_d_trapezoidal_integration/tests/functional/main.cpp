@@ -21,11 +21,14 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
 
     double lower_level = std::get<0>(input);
     double top_level = std::get<1>(input);
+    int steps = std::get<3>(input);
 
     int lower_level_int = static_cast<int>(lower_level);
     int top_level_int = static_cast<int>(top_level);
 
-    return "FROM_" + std::to_string(lower_level_int) + "_TO_" + std::to_string(top_level_int);
+    return "FROM_" + std::to_string(lower_level_int) + "_TO_" + std::to_string(top_level_int) + "_STEPS_" +
+           std::to_string(steps);
+    ;
   }
 
  protected:
@@ -38,8 +41,12 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    double relative_error = std::abs(output_data - expected_result_) / std::abs(expected_result_);
-    return relative_error < 0.01;
+    if (std::abs(expected_result_) < 1e-12) {
+      return std::abs(output_data) < 0.01;
+    } else {
+      double relative_error = std::abs(output_data - expected_result_) / std::abs(expected_result_);
+      return relative_error < 0.01;
+    }
   }
 
   InType GetTestInputData() final {
@@ -51,23 +58,80 @@ class IskhakovDTrapezoidalIntegrationFuncTests : public ppc::util::BaseRunFuncTe
   double expected_result_{};
 };
 
+struct Functions {
+  static double Original(double x) {
+    return ((x * x * x) * std::sin(x)) + (2.0 * std::cos(x));
+  }
+
+  static double Quadratic(double x) {
+    return x * x;
+  }
+
+  static double Cubic(double x) {
+    return x * x * x;
+  }
+
+  static double Sine(double x) {
+    return std::sin(x);
+  }
+
+  static double Exponential(double x) {
+    return std::exp(x);
+  }
+
+  static double Linear(double x) {
+    return 2.0 * x + 1.0;
+  }
+
+  static double Constant([[maybe_unused]] double x) {
+    return 5.0;
+  }
+
+  static double ComplexTrig(double x) {
+    return std::sin(x) + std::cos(2.0 * x);
+  }
+
+  static double Rational(double x) {
+    return 1.0 / (1.0 + x * x);
+  }
+
+  static double Logarithmic(double x) {
+    return std::log(1.0 + x);
+  }
+};
+
 namespace {
 
-double InFunction(double x) {
-  return ((x * x * x) * std::sin(x)) + (2.0 * std::cos(x));
-}
-
-InType CreateTestData(double lower_level, double top_level, int steps) {
-  return std::make_tuple(lower_level, top_level, InFunction, steps);
+InType CreateTestData(double lower_level, double top_level, std::function<double(double)> func, int steps) {
+  return std::make_tuple(lower_level, top_level, func, steps);
 }
 
 TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, TrapezoidalIntegration) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(CreateTestData(0.0, 1.0, 10000), 1.8600),
-                                            std::make_tuple(CreateTestData(0.0, 2.0, 20000), 5.6100),
-                                            std::make_tuple(CreateTestData(1.0, 3.0, 30000), 10.2953)};
+const std::array<TestType, 15> kTestParam = {
+    std::make_tuple(CreateTestData(0.0, 1.0, Functions::Original, 1000), 1.8600),
+    std::make_tuple(CreateTestData(0.0, 2.0, Functions::Original, 2000), 5.6100),
+    std::make_tuple(CreateTestData(1.0, 3.0, Functions::Original, 3000), 10.2953),
+
+    std::make_tuple(CreateTestData(0.0, 1.0, Functions::Quadratic, 11000), 1.0 / 3.0),
+    std::make_tuple(CreateTestData(0.0, 2.0, Functions::Quadratic, 12000), 8.0 / 3.0),
+    std::make_tuple(CreateTestData(1.0, 3.0, Functions::Cubic, 13000), 20.0),
+
+    std::make_tuple(CreateTestData(0.0, M_PI, Functions::Sine, 14000), 2.0),
+    std::make_tuple(CreateTestData(0.0, M_PI / 2, Functions::Sine, 15000), 1.0),
+    std::make_tuple(CreateTestData(0.0, 2 * M_PI, Functions::Sine, 16000), 0.0),
+
+    std::make_tuple(CreateTestData(0.0, 1.0, Functions::Exponential, 17000), std::exp(1.0) - 1.0),
+    std::make_tuple(CreateTestData(1.0, 2.0, Functions::Exponential, 18000), std::exp(2.0) - std::exp(1.0)),
+
+    std::make_tuple(CreateTestData(0.0, 1.0, Functions::Linear, 19000), 2.0),
+    std::make_tuple(CreateTestData(0.0, 2.0, Functions::Linear, 20000), 6.0),
+
+    std::make_tuple(CreateTestData(0.0, 5.0, Functions::Constant, 21000), 25.0),
+
+    std::make_tuple(CreateTestData(0.0, M_PI, Functions::ComplexTrig, 22000), 2.0)};
 
 const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDTrapezoidalIntegrationMPI, InType>(
                                                kTestParam, PPC_SETTINGS_iskhakov_d_trapezoidal_integration),

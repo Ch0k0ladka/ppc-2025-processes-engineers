@@ -10,7 +10,7 @@
 
 ## 2. Постановка задачи
 **Формальная задача**: Численное интегрирование методом трапеций
-- Вычисление определенного интеграла ∫[lower_level,top_level] f(x)dx ≈ step/2 * [f(lower_level) + 2∑f(x_i) + f(top_level)]
+- Вычисление определенного интеграла ∫[lower_level, top_level] f(x)dx ≈ step/2 * [f(lower_level) + 2∑f(x_i) + f(top_level)]
 - Где step = (top_level-lower_lexel)/number_steps
 - x_i = lower_level + i*step
 
@@ -24,7 +24,7 @@
 **Ограничения**:
 - lower_level < top_level (проверка корректности пределов интегрирования)
 - number_steps > 0 (положительное количество шагов)
-- Функция должна быть определена на [lower_level,top_level]
+- Функция должна быть определена на [lower_level, top_level]
 
 ## 3. Базовый алгоритм (Последовательный)
 
@@ -48,23 +48,41 @@ result += input_function(lower_level + step * i);
 result *= step;
 
 ## 4. Схема распараллеливания
-- каждый процесс выполняет свою внутренних точек, где процесс выполнения идёт (1-2-3-4-1-2-3-4-...), то есть 
-  * 1 процесс выполняет 1, world_size, 2*world_size, 
-  * 2 процесс выполняет 2, world_size, 2*world_size, 
+- каждый процесс, через цикл распределения, получает свои точки, где цикл обрабатывает их относительна числа процессов, то есть 
+  * 1 процесс получает точки 1, world_size, 2*world_size, 
+  * 2 процесс получает точки 2, world_size, 2*world_size, 
   ...
 
 и так далее в зависимости от числа процессов
 
-  for (int i = world_rank + 1; i < number_steps; i += world_size) {
-    local_sum += input_function(lower_level + step * i);
-  }
+- Цикл вычисления всех точек для каждого процесса происходит в процессе ранга 0, после чего рассылается по другим процессам
+
+MPI_Scatterv(points.data(), elements_per_proc.data(), displacement.data(), 
+             MPI_DOUBLE, local_points.data(), local_count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+// Локальные вычисления
+double local_sum = 0.0;
+for (double point : local_points) {
+    local_sum += input_function(point);
+}
+
+// Коррекция граничных точек для метода трапеций
+if (world_rank == 0) {
+    local_sum -= input_function(local_points[0]) * 0.5;
+}
+if (world_rank == world_size - 1) {
+    local_sum -= input_function(local_points.back()) * 0.5;
+}
+
+// Глобальное суммирование
+MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 - Процесс 0 ранга получает задачу и расылает данные другим процессам, после чего все процессы вносят свои результаты работы в окончательный результат
     MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
 ## 5. Детали реализации
-- Весь код был выполнен в шаблоне задачи, с добавлением 1 функции, InFunction, необходимой для лучшей читаемости кода
+- Весь код был выполнен в шаблоне задачи, с добавлением 1 функции, Function, необходимой для лучшей читаемости кода
 
 ## 6. Экспериментальная установка
 - **Hardware/OS:** 
@@ -109,15 +127,15 @@ Present time, speedup and efficiency. Example table:
 
 | Mode  | Count    | Time, s   | Speedup   | Efficiency    |
 |-------|----------|-----------|-----------|---------------|
-| seq   | 1        | 0.00700   | 1.00      | N/A           |
-| mpi   | 2        | 0.00410   | 1.71      | 85.5%         |
-| mpi   | 4        | 0.00218   | 3.21      | 80.3%         |
+| seq   | 1        | 0.07079   | 1.00      | N/A           |
+| mpi   | 2        | 0.10681   | 0.66      | 33.1%         |
+| mpi   | 4        | 0.09319   | 0.76      | 19.0%         |
 
-- Хорошее ускорение (3.21× на 4 процессах)
-- Высокая эффективность (>80% на 4 процессах)
+- Программа показала лишь замедление выполнения (0.76× на 4 процессах)
+- Низкая эффективность (<20% на 4 процессах)
 
 ## 8. Выводы
-Реализация MPI обеспечивает значительное ускорение зависящее от числа процессов выполнения
+Реализация MPI не обеспечило значительного ускорения
 
 ## 9. Ссылки
 1. Документация по курсу - https://learning-process.github.io/parallel_programming_course/ru/common_information/report.html
