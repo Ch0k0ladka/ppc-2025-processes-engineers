@@ -110,7 +110,7 @@ TEST_P(IskhakovDTrapezoidalIntegrationFuncTests, TrapezoidalIntegration) {
   ExecuteTest(GetParam());
 }
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 const std::array<TestType, 15> kTestParam = {
     std::make_tuple(CreateTestData(0.0, 1.0, Functions::Original, 1000), 1.8600),
