@@ -11,7 +11,7 @@
 ## 2. Постановка задачи
 **Формальная задача**: Численное интегрирование методом трапеций
 - Вычисление определенного интеграла ∫[lower_level, top_level] f(x)dx ≈ step/2 * [f(lower_level) + 2∑f(x_i) + f(top_level)]
-- Где step = (top_level-lower_lexel)/number_steps
+- Где step = (top_level-lower_level)/number_steps
 - x_i = lower_level + i*step
 
 **Входные данные**:
@@ -29,7 +29,7 @@
 ## 3. Базовый алгоритм (Последовательный)
 
 1. Проверка входных данных: убедиться, что lower_level < top_level и number_steps > 0
-2. Вычисление шага: Где step = (top_level-lower_lexel)/number_steps
+2. Вычисление шага: Где step = (top_level-lower_level)/number_steps
 3. Вычисление вклада концевых точек: (f(lower_level) + f(top_level))/2
 4. Суммирование внутренних точек: ∑f(lower_level + step*top_level)
 5. Умножение на шаг
@@ -48,10 +48,7 @@ result += input_function(lower_level + step * i);
 result *= step;
 
 ## 4. Схема распараллеливания
-- каждый процесс, через цикл распределения, получает свои точки, где цикл обрабатывает их относительна числа процессов, то есть 
-  * 1 процесс получает точки 1, world_size, 2*world_size, 
-  * 2 процесс получает точки 2, world_size, 2*world_size, 
-  ...
+- каждый процесс, получает свои точки, через блочное распределение через MPI_Scatterv
 
 и так далее в зависимости от числа процессов
 
@@ -77,7 +74,7 @@ if (world_rank == world_size - 1) {
 // Глобальное суммирование
 MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-- Процесс 0 ранга получает задачу и расылает данные другим процессам, после чего все процессы вносят свои результаты работы в окончательный результат
+- Процесс 0 ранга получает задачу и раcсылает данные другим процессам, после чего все процессы вносят свои результаты работы в окончательный результат
     MPI_Allreduce(&local_sum, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
