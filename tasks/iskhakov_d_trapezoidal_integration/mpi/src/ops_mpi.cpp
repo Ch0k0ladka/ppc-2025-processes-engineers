@@ -52,48 +52,40 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
   MPI_Bcast(&top_level, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(&number_steps, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  auto input_function = std::get<2>(input);
+  if (number_steps == 0) {
+    GetOutput() = 0.0;
+    return true;
+  }
 
+  auto input_function = std::get<2>(input);
   double step = (top_level - lower_level) / static_cast<double>(number_steps);
 
-  int local_count = number_steps / world_size;
-  if (world_rank < number_steps % world_size) {
-    local_count++;
+  int base_count = number_steps / world_size;
+  int remainder = number_steps % world_size;
+
+  std::vector<int> elements_per_proc(static_cast<std::size_t>(world_size));
+  std::vector<int> displacement(static_cast<std::size_t>(world_size));
+
+  int offset = 0;
+  for (int process_id = 0; process_id < world_size; ++process_id) {
+    elements_per_proc[static_cast<std::size_t>(process_id)] = base_count + (process_id < remainder ? 1 : 0);
+    displacement[static_cast<std::size_t>(process_id)] = offset;
+    offset += elements_per_proc[static_cast<std::size_t>(process_id)];
   }
 
-  std::vector<int> elements_per_proc(world_size);
-  std::vector<int> displacement(world_size);
-  std::vector<double> points(number_steps + 1);
+  int local_count = elements_per_proc[static_cast<std::size_t>(world_rank)];
 
+  std::vector<double> all_points;
   if (world_rank == 0) {
-    for (int i = 0; i <= number_steps; i++) {
-      points[i] = lower_level + i * step;
-    }
-
-    int steps_per_process = number_steps / world_size;
-    int remainder = number_steps % world_size;
-    int current_displacement = 0;
-
-    for (int i = 0; i < world_size; i++) {
-      if (i < remainder) {
-        elements_per_proc[i] = steps_per_process + 1;
-      } else {
-        elements_per_proc[i] = steps_per_process;
-      }
-      displacement[i] = current_displacement;
-      current_displacement += elements_per_proc[i];
+    all_points.resize(static_cast<std::size_t>(number_steps) + 1);
+    for (int step_index = 0; step_index <= number_steps; ++step_index) {
+      all_points[static_cast<std::size_t>(step_index)] = lower_level + (static_cast<double>(step_index) * step);
     }
   }
 
-  std::vector<double> local_points(local_count);
-
-  if (world_rank == 0) {
-    MPI_Scatterv(points.data(), elements_per_proc.data(), displacement.data(), MPI_DOUBLE, local_points.data(),
-                 local_count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  } else {
-    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_DOUBLE, local_points.data(), local_count, MPI_DOUBLE, 0,
-                 MPI_COMM_WORLD);
-  }
+  std::vector<double> local_points(static_cast<std::size_t>(local_count));
+  MPI_Scatterv(all_points.data(), elements_per_proc.data(), displacement.data(), MPI_DOUBLE, local_points.data(),
+               local_count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
   double local_sum = 0.0;
   for (double point : local_points) {
@@ -101,7 +93,7 @@ bool IskhakovDTrapezoidalIntegrationMPI::RunImpl() {
   }
 
   if (world_rank == 0) {
-    local_sum -= input_function(local_points[0]) * 0.5;
+    local_sum -= input_function(local_points.front()) * 0.5;
   }
   if (world_rank == world_size - 1) {
     local_sum -= input_function(local_points.back()) * 0.5;
