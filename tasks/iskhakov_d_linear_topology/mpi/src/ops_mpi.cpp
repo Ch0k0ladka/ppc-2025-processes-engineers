@@ -2,71 +2,141 @@
 
 #include <mpi.h>
 
-#include <numeric>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace iskhakov_d_linear_topology {
 
 IskhakovDLinearTopologyMPI::IskhakovDLinearTopologyMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = {};
 }
 
 bool IskhakovDLinearTopologyMPI::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
-}
+  const auto &input = GetInput();
 
-bool IskhakovDLinearTopologyMPI::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
-}
+  int world_size = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-bool IskhakovDLinearTopologyMPI::RunImpl() {
-  auto input = GetInput();
-  if (input == 0) {
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  if (input.head_process < 0) {
+    return false;
+  }
+  if (input.head_process >= world_size) {
     return false;
   }
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
-      }
-    }
+  if (input.tail_process < 0) {
+    return false;
+  }
+  if (input.tail_process >= world_size) {
+    return false;
   }
 
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
+  if (world_rank == input.head_process) {
+    return !input.data.empty() && !input.delivered;
+  }
 
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  return true;
+}
 
-  if (rank == 0) {
-    GetOutput() /= num_threads;
+bool IskhakovDLinearTopologyMPI::PreProcessingImpl() {
+  return true;
+}
+
+bool IskhakovDLinearTopologyMPI::RunImpl() {
+  int world_size = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  const auto &input = GetInput();
+
+  int head_process = input.head_process;
+  int tail_process = input.tail_process;
+  int direction;
+
+  if (head_process == tail_process) {
+    GetOutput() = input;
+    GetOutput().delivered = true;
+    return true;
+  }
+
+  if (head_process < tail_process) {
+    direction = 1;
   } else {
-    int counter = 0;
-    for (int i = 0; i < num_threads; i++) {
-      counter++;
-    }
-
-    if (counter != 0) {
-      GetOutput() /= counter;
-    }
+    direction = -1;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  return GetOutput() > 0;
+  bool participate;
+  if (direction > 0) {
+    participate = ((world_rank >= head_process) && (world_rank <= tail_process));
+  } else {
+    participate = ((world_rank <= head_process) && (world_rank >= tail_process));
+  }
+
+  if (!participate) {
+    GetOutput().delivered = false;
+    return true;
+  }
+
+  bool is_head = (world_rank == head_process);
+  bool is_tail = (world_rank == tail_process);
+
+  int previous_process = MPI_PROC_NULL;
+  int next_process = MPI_PROC_NULL;
+
+  if (!is_head) {
+    previous_process = world_rank - direction;
+  }
+
+  if (!is_tail) {
+    next_process = world_rank + direction;
+  }
+
+  std::vector<int> local_data;
+
+  if (is_head) {
+    local_data = input.data;
+
+    int local_data_size = static_cast<int>(local_data.size());
+    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
+    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+
+    GetOutput().delivered = true;
+  } else if (is_tail) {
+    int local_data_size = 0;
+    MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    local_data.resize(local_data_size);
+    MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    GetOutput().data = std::move(local_data);
+    GetOutput().delivered = true;
+  } else {
+    int local_data_size = 0;
+    MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    local_data.resize(local_data_size);
+    MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    GetOutput().data = local_data;
+    GetOutput().delivered = true;
+
+    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
+    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+  }
+
+  return true;
 }
 
 bool IskhakovDLinearTopologyMPI::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace iskhakov_d_linear_topology

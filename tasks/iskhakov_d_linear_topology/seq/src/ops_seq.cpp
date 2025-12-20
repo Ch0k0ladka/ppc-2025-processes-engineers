@@ -1,60 +1,44 @@
 #include "iskhakov_d_linear_topology/seq/include/ops_seq.hpp"
 
-#include <numeric>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace iskhakov_d_linear_topology {
 
 IskhakovDLinearTopologySEQ::IskhakovDLinearTopologySEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = {};
 }
 
 bool IskhakovDLinearTopologySEQ::ValidationImpl() {
-  return (GetInput() > 0) && (GetOutput() == 0);
+  const auto &input = GetInput();
+
+  if ((!input.data.empty()) && (!input.delivered)) {
+    return true;
+  }
+
+  return false;
 }
 
 bool IskhakovDLinearTopologySEQ::PreProcessingImpl() {
-  GetOutput() = 2 * GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 bool IskhakovDLinearTopologySEQ::RunImpl() {
-  if (GetInput() == 0) {
-    return false;
-  }
+  const auto &input = GetInput();
 
-  for (InType i = 0; i < GetInput(); i++) {
-    for (InType j = 0; j < GetInput(); j++) {
-      for (InType k = 0; k < GetInput(); k++) {
-        std::vector<InType> tmp(i + j + k, 1);
-        GetOutput() += std::accumulate(tmp.begin(), tmp.end(), 0);
-        GetOutput() -= i + j + k;
-      }
-    }
-  }
+  std::vector<int> local_data = input.data;
+  bool delivered = true;
 
-  const int num_threads = ppc::util::GetNumThreads();
-  GetOutput() *= num_threads;
+  GetOutput() = {input.head_process, input.tail_process, local_data, delivered};
 
-  int counter = 0;
-  for (int i = 0; i < num_threads; i++) {
-    counter++;
-  }
-
-  if (counter != 0) {
-    GetOutput() /= counter;
-  }
-  return GetOutput() > 0;
+  return true;
 }
 
 bool IskhakovDLinearTopologySEQ::PostProcessingImpl() {
-  GetOutput() -= GetInput();
-  return GetOutput() > 0;
+  return true;
 }
 
 }  // namespace iskhakov_d_linear_topology
