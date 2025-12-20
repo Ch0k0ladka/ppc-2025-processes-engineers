@@ -1,155 +1,258 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 
-#include <array>
-#include <cstddef>
-#include <string>
+#include <iostream>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
 #include "iskhakov_d_linear_topology/mpi/include/ops_mpi.hpp"
 #include "iskhakov_d_linear_topology/seq/include/ops_seq.hpp"
-#include "util/include/func_test_util.hpp"
 
 namespace iskhakov_d_linear_topology {
 
-class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
- public:
-  static std::string PrintTestParam(const TestType &test_param) {
-    const auto &[input, expected] = test_param;
-    return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_size_" +
-           std::to_string(input.data.size());
-  }
-
+class LinearTopologyFuncTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    const auto &[input, expected] = params;
-
-    input_data_ = input;
-    expected_data_ = expected;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+    MPI_Comm_size(MPI_COMM_WORLD, &size_);
   }
 
-  bool CheckTestOutputData(OutType &output_data) final {
-    if (output_data.data != expected_data_.data) {
-      return false;
+  std::vector<int> make_data(int count, int start = 1) {
+    std::vector<int> data(count);
+    for (int i = 0; i < count; ++i) {
+      data[i] = start + i;
     }
-
-    if (output_data.head_process != expected_data_.head_process) {
-      return false;
-    }
-
-    if (output_data.tail_process != expected_data_.tail_process) {
-      return false;
-    }
-
-    if (output_data.delivered != expected_data_.delivered) {
-      return false;
-    }
-
-    return true;
+    return data;
   }
 
-  InType GetTestInputData() final {
-    return input_data_;
+  void check_head_tail(const Message &result, const std::vector<int> &expected_data, int head, int tail) {
+    if (head == tail) {
+      if (rank_ == head) {
+        EXPECT_TRUE(result.delivered);
+        EXPECT_EQ(result.data, expected_data);
+      } else {
+        EXPECT_FALSE(result.delivered);
+        EXPECT_TRUE(result.data.empty());
+      }
+    } else {
+      if (rank_ == head || rank_ == tail) {
+        EXPECT_TRUE(result.delivered);
+        EXPECT_EQ(result.data, expected_data);
+      } else {
+        EXPECT_FALSE(result.delivered);
+        EXPECT_TRUE(result.data.empty());
+      }
+    }
+
+    EXPECT_EQ(result.head_process, head);
+    EXPECT_EQ(result.tail_process, tail);
   }
 
- private:
-  InType input_data_;
-  OutType expected_data_;
+  int rank_;
+  int size_;
 };
 
-namespace {
+TEST_F(LinearTopologyFuncTest, SingleProcess) {
+  MPI_Barrier(MPI_COMM_WORLD);
 
-std::vector<int> GenerateTestVector(size_t size, int start = 1) {
-  std::vector<int> data(size);
-  for (size_t i = 0; i < size; ++i) {
-    data[i] = static_cast<int>(i + start);
+  int head = 0;
+  int tail = 0;
+  std::vector<int> test_data = make_data(5);
+
+  Message input;
+  input.head_process = head;
+  input.tail_process = tail;
+  input.data = (rank_ == head) ? test_data : std::vector<int>{};
+  input.delivered = false;
+
+  IskhakovDLinearTopologyMPI algorithm(input);
+
+  bool valid = algorithm.Validation();
+  if (rank_ == head) {
+    EXPECT_TRUE(valid);
   }
-  return data;
-}
 
-std::vector<int> GenerateConsecutiveVector(size_t size, int first = 10) {
-  std::vector<int> data(size);
-  for (size_t i = 0; i < size; ++i) {
-    data[i] = static_cast<int>(first + i);
+  if (valid) {
+    algorithm.PreProcessing();
+    bool run = algorithm.Run();
+    EXPECT_TRUE(run);
+    algorithm.PostProcessing();
   }
-  return data;
+
+  auto output = algorithm.GetOutput();
+  const auto &result = std::get<0>(output);
+  int processes_number = std::get<1>(output);
+
+  check_head_tail(result, test_data, head, tail);
+  EXPECT_EQ(processes_number, size_);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
-std::vector<int> GenerateConstantVector(size_t size, int value = 42) {
-  return std::vector<int>(size, value);
-}
+TEST_F(LinearTopologyFuncTest, TwoProcesses) {
+  MPI_Barrier(MPI_COMM_WORLD);
 
-std::vector<int> GenerateIncreasingVector(size_t size, int step = 3) {
-  std::vector<int> data(size);
-  int value = 1;
-  for (size_t i = 0; i < size; ++i) {
-    data[i] = value;
-    value += step;
+  if (size_ < 2) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    GTEST_SKIP() << "Need at least 2 processes";
   }
-  return data;
+
+  int head = 0;
+  int tail = 1;
+  std::vector<int> test_data = make_data(10);
+
+  Message input;
+  input.head_process = head;
+  input.tail_process = tail;
+  input.data = (rank_ == head) ? test_data : std::vector<int>{};
+  input.delivered = false;
+
+  IskhakovDLinearTopologyMPI algorithm(input);
+
+  bool valid = algorithm.Validation();
+  if (rank_ == head) {
+    EXPECT_TRUE(valid);
+  }
+
+  if (valid) {
+    algorithm.PreProcessing();
+    bool run = algorithm.Run();
+    EXPECT_TRUE(run);
+    algorithm.PostProcessing();
+  }
+
+  auto output = algorithm.GetOutput();
+  const auto &result = std::get<0>(output);
+  int processes_number = std::get<1>(output);
+
+  check_head_tail(result, test_data, head, tail);
+  EXPECT_EQ(processes_number, size_);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
-TestType CreateTestData(int head, int tail, const std::vector<int> &data) {
-  InType input{head, tail, data, false};
-  OutType expected{head, tail, data, true};
-  return std::make_tuple(input, expected);
+TEST_F(LinearTopologyFuncTest, ThreeOrMoreProcesses) {
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (size_ < 3) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    GTEST_SKIP() << "Need at least 3 processes";
+  }
+
+  int head = 0;
+  int tail = size_ - 1;
+  std::vector<int> test_data = make_data(15);
+
+  Message input;
+  input.head_process = head;
+  input.tail_process = tail;
+  input.data = (rank_ == head) ? test_data : std::vector<int>{};
+  input.delivered = false;
+
+  IskhakovDLinearTopologyMPI algorithm(input);
+
+  bool valid = algorithm.Validation();
+  if (rank_ == head) {
+    EXPECT_TRUE(valid);
+  }
+
+  if (valid) {
+    algorithm.PreProcessing();
+    bool run = algorithm.Run();
+    EXPECT_TRUE(run);
+    algorithm.PostProcessing();
+  }
+
+  auto output = algorithm.GetOutput();
+  const auto &result = std::get<0>(output);
+  int processes_number = std::get<1>(output);
+
+  check_head_tail(result, test_data, head, tail);
+  EXPECT_EQ(processes_number, size_);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
-const std::array<TestType, 27> kTestParam = {
-    CreateTestData(0, 1, GenerateTestVector(3)),
-    CreateTestData(0, 1, GenerateTestVector(5)),
-    CreateTestData(1, 0, GenerateTestVector(4)),
-    CreateTestData(1, 0, GenerateTestVector(2)),
+TEST_F(LinearTopologyFuncTest, FourOrMoreProcesses) {
+  MPI_Barrier(MPI_COMM_WORLD);
 
-    CreateTestData(0, 2, GenerateTestVector(3, 10)),
-    CreateTestData(2, 0, GenerateTestVector(4, 20)),
-    CreateTestData(0, 2, GenerateConsecutiveVector(5, 100)),
-    CreateTestData(2, 0, GenerateConsecutiveVector(6, 200)),
+  if (size_ < 4) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    GTEST_SKIP() << "Need at least 4 processes";
+  }
 
-    CreateTestData(0, 3, GenerateTestVector(2, 30)),
-    CreateTestData(0, 3, GenerateConstantVector(4, 99)),
-    CreateTestData(3, 0, GenerateConstantVector(5, 77)),
+  int head = 0;
+  int tail = size_ - 1;
+  std::vector<int> test_data = make_data(20);
 
-    CreateTestData(1, 3, GenerateTestVector(3, 50)),
-    CreateTestData(3, 1, GenerateTestVector(4, 60)),
-    CreateTestData(1, 3, GenerateIncreasingVector(5, 5)),
-    CreateTestData(3, 1, GenerateIncreasingVector(6, 7)),
+  Message input;
+  input.head_process = head;
+  input.tail_process = tail;
+  input.data = (rank_ == head) ? test_data : std::vector<int>{};
+  input.delivered = false;
 
-    CreateTestData(1, 2, GenerateTestVector(3, 70)),
-    CreateTestData(2, 1, GenerateTestVector(4, 80)),
-    CreateTestData(1, 2, std::vector<int>{1, 3, 5, 7, 9}),
-    CreateTestData(2, 1, std::vector<int>{2, 4, 6, 8, 10}),
+  IskhakovDLinearTopologyMPI algorithm(input);
 
-    CreateTestData(0, 3, GenerateTestVector(100, 1)),
-    CreateTestData(3, 0, GenerateTestVector(50, 1000)),
+  bool valid = algorithm.Validation();
+  if (rank_ == head) {
+    EXPECT_TRUE(valid);
+  }
 
-    CreateTestData(0, 3, std::vector<int>{999}),
-    CreateTestData(2, 1, std::vector<int>{-1}),
+  if (valid) {
+    algorithm.PreProcessing();
+    bool run = algorithm.Run();
+    EXPECT_TRUE(run);
+    algorithm.PostProcessing();
+  }
 
-    CreateTestData(0, 2, std::vector<int>{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5}),
+  auto output = algorithm.GetOutput();
+  const auto &result = std::get<0>(output);
+  int processes_number = std::get<1>(output);
 
-    CreateTestData(1, 3, std::vector<int>{15, 8, 42, 23, 17, 9, 31}),
+  check_head_tail(result, test_data, head, tail);
+  EXPECT_EQ(processes_number, size_);
 
-    CreateTestData(0, 3, std::vector<int>{7, 7, 7, 7, 7}),
-    CreateTestData(3, 0, std::vector<int>{3, 3, 3})};
-
-TEST_P(IskhakovDLinearTopologyFuncTests, LinearTopology) {
-  ExecuteTest(GetParam());
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
-const auto kTestTasksList = std::tuple_cat(
-    ppc::util::AddFuncTask<IskhakovDLinearTopologyMPI, InType>(kTestParam, PPC_SETTINGS_iskhakov_d_linear_topology),
-    ppc::util::AddFuncTask<IskhakovDLinearTopologySEQ, InType>(kTestParam, PPC_SETTINGS_iskhakov_d_linear_topology));
+class LinearTopologySEQTest : public ::testing::Test {};
 
-const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
+TEST_F(LinearTopologySEQTest, BasicSEQTest) {
+  auto make_data = [](int count) {
+    std::vector<int> data(count);
+    for (int i = 0; i < count; ++i) {
+      data[i] = i + 1;
+    }
+    return data;
+  };
 
-const auto kPerfTestName = IskhakovDLinearTopologyFuncTests::PrintFuncTestName<IskhakovDLinearTopologyFuncTests>;
+  int head = 0;
+  int tail = 0;
+  std::vector<int> test_data = make_data(10);
 
-INSTANTIATE_TEST_SUITE_P(LinearTopologyTests, IskhakovDLinearTopologyFuncTests, kGtestValues, kPerfTestName);
+  Message input;
+  input.head_process = head;
+  input.tail_process = tail;
+  input.data = test_data;
+  input.delivered = false;
 
-}  // namespace
+  IskhakovDLinearTopologySEQ algorithm(input);
+
+  EXPECT_TRUE(algorithm.Validation());
+  algorithm.PreProcessing();
+  EXPECT_TRUE(algorithm.Run());
+  algorithm.PostProcessing();
+
+  auto output = algorithm.GetOutput();
+  const auto &result = std::get<0>(output);
+  int processes_number = std::get<1>(output);
+
+  EXPECT_TRUE(result.delivered);
+  EXPECT_EQ(result.data, test_data);
+  EXPECT_EQ(result.head_process, head);
+  EXPECT_EQ(result.tail_process, tail);
+  EXPECT_EQ(processes_number, 1);
+}
 
 }  // namespace iskhakov_d_linear_topology

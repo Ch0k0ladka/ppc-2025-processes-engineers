@@ -37,11 +37,18 @@ bool IskhakovDLinearTopologyMPI::ValidationImpl() {
     return false;
   }
 
+  int is_valid_local = 1;
+
   if (world_rank == input.head_process) {
-    return !input.data.empty() && !input.delivered;
+    if (input.data.empty() || input.delivered) {
+      is_valid_local = 0;
+    }
   }
 
-  return true;
+  int is_valid_global;
+  MPI_Allreduce(&is_valid_local, &is_valid_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+  return (is_valid_global == 1);
 }
 
 bool IskhakovDLinearTopologyMPI::PreProcessingImpl() {
@@ -59,13 +66,24 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
 
   int head_process = input.head_process;
   int tail_process = input.tail_process;
-  int direction;
+
+  Message result;
+  result.head_process = head_process;
+  result.tail_process = tail_process;
 
   if (head_process == tail_process) {
-    GetOutput() = input;
-    GetOutput().delivered = true;
+    if (world_rank == head_process) {
+      result.data = input.data;
+      result.delivered = true;
+    } else {
+      result.data = {};
+      result.delivered = false;
+    }
+    GetOutput() = std::make_pair(result, world_size);
     return true;
   }
+
+  int direction;
 
   if (head_process < tail_process) {
     direction = 1;
@@ -81,7 +99,9 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   }
 
   if (!participate) {
-    GetOutput().delivered = false;
+    result.data = {};
+    result.delivered = false;
+    GetOutput() = std::make_pair(result, world_size);
     return true;
   }
 
@@ -108,7 +128,8 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
     MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
 
-    GetOutput().delivered = true;
+    result.data = local_data;
+    result.delivered = true;
   } else if (is_tail) {
     int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -116,8 +137,8 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    GetOutput().data = std::move(local_data);
-    GetOutput().delivered = true;
+    result.data = std::move(local_data);
+    result.delivered = true;
   } else {
     int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -125,13 +146,14 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    GetOutput().data = local_data;
-    GetOutput().delivered = true;
-
     MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
     MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+
+    result.data = {};
+    result.delivered = false;
   }
 
+  GetOutput() = std::make_pair(result, world_size);
   return true;
 }
 

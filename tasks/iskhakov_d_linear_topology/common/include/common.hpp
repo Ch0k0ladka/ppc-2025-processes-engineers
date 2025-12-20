@@ -15,7 +15,7 @@ struct Message {
 };
 
 using InType = Message;
-using OutType = Message;
+using OutType = std::tuple<Message, int>;
 using TestType = std::tuple<InType, OutType>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 

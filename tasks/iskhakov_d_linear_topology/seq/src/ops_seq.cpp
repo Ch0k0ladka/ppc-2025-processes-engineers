@@ -29,10 +29,18 @@ bool IskhakovDLinearTopologySEQ::PreProcessingImpl() {
 bool IskhakovDLinearTopologySEQ::RunImpl() {
   const auto &input = GetInput();
 
+  int head_process = input.head_process;
+  int tail_process = input.tail_process;
   std::vector<int> local_data = input.data;
   bool delivered = true;
 
-  GetOutput() = {input.head_process, input.tail_process, local_data, delivered};
+  Message result;
+  result.head_process = head_process;
+  result.tail_process = tail_process;
+  result.data = local_data;
+  result.delivered = delivered;
+
+  GetOutput() = std::make_tuple(result, 1);
 
   return true;
 }
