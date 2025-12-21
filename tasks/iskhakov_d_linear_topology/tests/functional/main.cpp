@@ -116,7 +116,7 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   }
 };
 
-bool SetupMpiTest(InType &input_data, int min_proc_count);
+bool SetupMpiTest(InType &input_data, int expected_proc_count);
 
 class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests {
  protected:
@@ -159,10 +159,10 @@ class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncT
   }
 };
 
-bool SetupMpiTest(InType &input_data, int min_proc_count) {
+bool SetupMpiTest(InType &input_data, int expected_proc_count) {
   if (!ppc::util::IsUnderMpirun()) {
     std::cerr << "MPI tests are not under mpirun\n";
-    return false;
+    GTEST_SKIP();
   }
 
   int proc_nums{};
@@ -171,7 +171,7 @@ bool SetupMpiTest(InType &input_data, int min_proc_count) {
   MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
   int should_skip = 0;
-  if (proc_nums < min_proc_count) {
+  if (proc_nums != expected_proc_count) {
     should_skip = 1;
   }
 
@@ -180,8 +180,10 @@ bool SetupMpiTest(InType &input_data, int min_proc_count) {
 
   if (global_should_skip) {
     if (proc_rank == 0) {
-      std::cerr << "Tests should run on " << min_proc_count << " or more processes\n";
+      std::cerr << "Tests should run on exactly " << expected_proc_count << " processes, but have " << proc_nums
+                << "\n";
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     return false;
   }
 
@@ -195,6 +197,7 @@ bool SetupMpiTest(InType &input_data, int min_proc_count) {
     adapted = true;
   }
 
+  // Вывод сообщения об адаптации на процессе 0
   if (adapted && proc_rank == 0) {
     std::cout << "Adapted test: head_process=" << input_data.head_process
               << ", tail_process=" << input_data.tail_process << " for " << proc_nums << " processes\n";
