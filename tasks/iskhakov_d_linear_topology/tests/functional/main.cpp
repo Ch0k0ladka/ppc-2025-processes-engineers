@@ -16,8 +16,6 @@
 
 namespace iskhakov_d_linear_topology {
 
-void SetupMpiTest(InType &input_data, int min_proc_count);
-
 class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
@@ -118,10 +116,53 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   }
 };
 
-void SetupMpiTest(InType &input_data, int min_proc_count) {
+bool SetupMpiTest(InType &input_data, int min_proc_count);
+
+class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests {
+ protected:
+  void SetUp() override {
+    if (ppc::util::IsUnderMpirun()) {
+      std::cerr << "SEQ tests should not run under mpirun\n";
+      GTEST_SKIP();
+    }
+    IskhakovDLinearTopologyFuncTests::SetUp();
+  }
+};
+
+class IskhakovDLinearTopologyMpi2ProcTests : public IskhakovDLinearTopologyFuncTests {
+ protected:
+  void SetUp() override {
+    IskhakovDLinearTopologyFuncTests::SetUp();
+    if (!SetupMpiTest(input_data_, 2)) {
+      GTEST_SKIP();
+    }
+  }
+};
+
+class IskhakovDLinearTopologyMpi3ProcTests : public IskhakovDLinearTopologyFuncTests {
+ protected:
+  void SetUp() override {
+    IskhakovDLinearTopologyFuncTests::SetUp();
+    if (!SetupMpiTest(input_data_, 3)) {
+      GTEST_SKIP();
+    }
+  }
+};
+
+class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncTests {
+ protected:
+  void SetUp() override {
+    IskhakovDLinearTopologyFuncTests::SetUp();
+    if (!SetupMpiTest(input_data_, 4)) {
+      GTEST_SKIP();
+    }
+  }
+};
+
+bool SetupMpiTest(InType &input_data, int min_proc_count) {
   if (!ppc::util::IsUnderMpirun()) {
     std::cerr << "MPI tests are not under mpirun\n";
-    GTEST_SKIP();
+    return false;
   }
 
   int proc_nums{};
@@ -129,9 +170,19 @@ void SetupMpiTest(InType &input_data, int min_proc_count) {
   MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
   MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
+  int should_skip = 0;
   if (proc_nums < min_proc_count) {
-    std::cerr << "Tests should run on " << min_proc_count << " or more processes\n";
-    GTEST_SKIP();
+    should_skip = 1;
+  }
+
+  int global_should_skip;
+  MPI_Allreduce(&should_skip, &global_should_skip, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+  if (global_should_skip) {
+    if (proc_rank == 0) {
+      std::cerr << "Tests should run on " << min_proc_count << " or more processes\n";
+    }
+    return false;
   }
 
   bool adapted = false;
@@ -167,42 +218,8 @@ void SetupMpiTest(InType &input_data, int min_proc_count) {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
+  return true;
 }
-
-class IskhakovDLinearTopologyMpi2ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-    SetupMpiTest(input_data_, 2);
-  }
-};
-
-class IskhakovDLinearTopologyMpi3ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-    SetupMpiTest(input_data_, 3);
-  }
-};
-
-class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-    SetupMpiTest(input_data_, 4);
-  }
-};
-
-class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    if (ppc::util::IsUnderMpirun()) {
-      std::cerr << "SEQ tests should not run under mpirun\n";
-      GTEST_SKIP();
-    }
-    IskhakovDLinearTopologyFuncTests::SetUp();
-  }
-};
 
 namespace {
 
