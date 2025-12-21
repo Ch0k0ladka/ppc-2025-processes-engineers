@@ -21,10 +21,9 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   static std::string PrintTestParam(const TestType &test_param) {
     const auto &input = std::get<0>(test_param);
     const auto &output = std::get<1>(test_param);
-    int process_count = std::get<1>(output);
 
     return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_data_" +
-           std::to_string(input.data_size) + "_processes_" + std::to_string(process_count);
+           std::to_string(input.data_size) + "_processes_" + std::to_string(output.process_count);
   }
 
  protected:
@@ -40,14 +39,14 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    const auto &actual_result = std::get<0>(output_data);
-    int actual_processes = std::get<1>(output_data);
+    const auto &actual_result = output_data.message;
+    int actual_processes = output_data.process_count;
 
     bool is_under_mpirun = ppc::util::IsUnderMpirun();
 
     if (!is_under_mpirun) {
-      const auto &expected_result = std::get<0>(expected_output_);
-      int expected_processes = std::get<1>(expected_output_);
+      const auto &expected_result = expected_output_.message;
+      int expected_processes = expected_output_.process_count;
 
       if (actual_processes != expected_processes) {
         return false;
@@ -157,13 +156,13 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       adapted = true;
     }
 
-    auto &expected_msg = std::get<0>(expected_output_);
+    auto &expected_msg = expected_output_.message;
     expected_msg.head_process = input_data_.head_process;
     expected_msg.tail_process = input_data_.tail_process;
     expected_msg.data_size = input_data_.data_size;
     expected_msg.delivered = true;
 
-    std::get<1>(expected_output_) = proc_nums;
+    expected_output_.process_count = proc_nums;
 
     if (adapted && proc_rank == 0) {
       std::cout << "Adapted test: head_process=" << input_data_.head_process
@@ -232,28 +231,30 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   return msg;
 }
 
-const std::array<TestType, 2> kSeqParam = {
-    TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
-    TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}}};
+Result CreateResult(int head, int tail, int data_size, bool delivered, int process_count) {
+  return Result{CreateMessage(head, tail, data_size, delivered), process_count};
+}
 
-const std::array<TestType, 14> kMpiParam = {
-    TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
-    TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}},
+const std::array<TestType, 2> kSeqParam = {TestType{CreateMessage(0, 0, 5, false), CreateResult(0, 0, 5, true, 1)},
+                                           TestType{CreateMessage(0, 0, 10, false), CreateResult(0, 0, 10, true, 1)}};
 
-    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 15, true), 2}},
-    TestType{CreateMessage(1, 0, 20, false), OutType{CreateMessage(1, 0, 20, true), 2}},
+const std::array<TestType, 14> kMpiParam = {TestType{CreateMessage(0, 0, 5, false), CreateResult(0, 0, 5, true, 1)},
+                                            TestType{CreateMessage(0, 0, 10, false), CreateResult(0, 0, 10, true, 1)},
 
-    TestType{CreateMessage(0, 2, 25, false), OutType{CreateMessage(0, 2, 25, true), 3}},
-    TestType{CreateMessage(2, 0, 30, false), OutType{CreateMessage(2, 0, 30, true), 3}},
-    TestType{CreateMessage(1, 2, 35, false), OutType{CreateMessage(1, 2, 35, true), 3}},
-    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 40, true), 3}},
+                                            TestType{CreateMessage(0, 1, 15, false), CreateResult(0, 1, 15, true, 2)},
+                                            TestType{CreateMessage(1, 0, 20, false), CreateResult(1, 0, 20, true, 2)},
 
-    TestType{CreateMessage(0, 3, 45, false), OutType{CreateMessage(0, 3, 45, true), 4}},
-    TestType{CreateMessage(3, 0, 50, false), OutType{CreateMessage(3, 0, 50, true), 4}},
-    TestType{CreateMessage(1, 3, 55, false), OutType{CreateMessage(1, 3, 55, true), 4}},
-    TestType{CreateMessage(3, 1, 60, false), OutType{CreateMessage(3, 1, 60, true), 4}},
-    TestType{CreateMessage(2, 3, 65, false), OutType{CreateMessage(2, 3, 65, true), 4}},
-    TestType{CreateMessage(3, 2, 70, false), OutType{CreateMessage(3, 2, 70, true), 4}}};
+                                            TestType{CreateMessage(0, 2, 25, false), CreateResult(0, 2, 25, true, 3)},
+                                            TestType{CreateMessage(2, 0, 30, false), CreateResult(2, 0, 30, true, 3)},
+                                            TestType{CreateMessage(1, 2, 35, false), CreateResult(1, 2, 35, true, 3)},
+                                            TestType{CreateMessage(2, 1, 40, false), CreateResult(2, 1, 40, true, 3)},
+
+                                            TestType{CreateMessage(0, 3, 45, false), CreateResult(0, 3, 45, true, 4)},
+                                            TestType{CreateMessage(3, 0, 50, false), CreateResult(3, 0, 50, true, 4)},
+                                            TestType{CreateMessage(1, 3, 55, false), CreateResult(1, 3, 55, true, 4)},
+                                            TestType{CreateMessage(3, 1, 60, false), CreateResult(3, 1, 60, true, 4)},
+                                            TestType{CreateMessage(2, 3, 65, false), CreateResult(2, 3, 65, true, 4)},
+                                            TestType{CreateMessage(3, 2, 70, false), CreateResult(3, 2, 70, true, 4)}};
 
 const auto kSeqTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<IskhakovDLinearTopologySEQ, InType>(kSeqParam, PPC_SETTINGS_iskhakov_d_linear_topology));

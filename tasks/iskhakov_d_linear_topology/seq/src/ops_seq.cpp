@@ -10,7 +10,7 @@ namespace iskhakov_d_linear_topology {
 IskhakovDLinearTopologySEQ::IskhakovDLinearTopologySEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput() = Result{};
 }
 
 bool IskhakovDLinearTopologySEQ::ValidationImpl() {
@@ -34,17 +34,17 @@ bool IskhakovDLinearTopologySEQ::RunImpl() {
   int tail_process = input.tail_process;
 
   std::vector<int> local_data(input.data.begin(), input.data.end());
-
+  int local_size = local_data.size();
   bool delivered = true;
 
   Message result;
   result.head_process = head_process;
   result.tail_process = tail_process;
-  result.data_size = static_cast<int>(local_data.size());
+  result.data_size = local_size;
   result.data = local_data;
   result.delivered = delivered;
 
-  GetOutput() = std::make_tuple(result, 1);
+  GetOutput() = Result{result, 1};
 
   return true;
 }

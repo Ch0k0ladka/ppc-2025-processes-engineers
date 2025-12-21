@@ -40,8 +40,8 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    const auto &result = std::get<0>(output_data);
-    int processes_number = std::get<1>(output_data);
+    const auto &result = output_data.message;
+    int processes_number = output_data.process_count;
 
     if (is_mpi_) {
       int world_size = 0;

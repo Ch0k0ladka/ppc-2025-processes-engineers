@@ -15,8 +15,13 @@ struct Message {
   bool delivered = false;
 };
 
+struct Result {
+  Message message;
+  int process_count = 0;
+};
+
 using InType = Message;
-using OutType = std::tuple<Message, int>;
+using OutType = Result;
 using TestType = std::tuple<InType, OutType>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 

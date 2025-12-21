@@ -12,7 +12,7 @@ namespace iskhakov_d_linear_topology {
 IskhakovDLinearTopologyMPI::IskhakovDLinearTopologyMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput() = Result{};
 }
 
 bool IskhakovDLinearTopologyMPI::ValidationImpl() {
@@ -74,8 +74,6 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   Message result;
   result.head_process = head_process;
   result.tail_process = tail_process;
-  result.data_size = 0;
-  result.delivered = false;
 
   if (head_process == tail_process) {
     if (world_rank == head_process) {
@@ -87,7 +85,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
       result.data_size = 0;
       result.delivered = false;
     }
-    GetOutput() = std::make_tuple(result, world_size);
+    GetOutput() = Result{result, world_size};
     return true;
   }
 
@@ -110,7 +108,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     result.data = {};
     result.data_size = 0;
     result.delivered = false;
-    GetOutput() = std::make_tuple(result, world_size);
+    GetOutput() = Result{result, world_size};
     return true;
   }
 
@@ -165,7 +163,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     result.delivered = false;
   }
 
-  GetOutput() = std::make_tuple(result, world_size);
+  GetOutput() = Result{result, world_size};
   return true;
 }
 
