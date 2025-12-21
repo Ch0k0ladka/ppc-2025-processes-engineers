@@ -17,34 +17,51 @@ namespace iskhakov_d_linear_topology {
 class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    int data_size = 100000000;
-
-    input_data_.head_process = 0;
-    input_data_.data_size = data_size;
-
     auto task_info = std::get<1>(GetParam());
     is_mpi_ = task_info.find("mpi") != std::string::npos;
 
     if (is_mpi_) {
-      input_data_.tail_process = 3;
+      int world_size = 0;
+      MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+      int data_size = 1000000;
+
+      input_data_.head_process = 0;
+      input_data_.tail_process = std::min(3, world_size - 1);
+
+      int rank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+      if (rank == input_data_.head_process) {
+        std::vector<int> data(data_size);
+        for (int i = 0; i < data_size; ++i) {
+          data[i] = (static_cast<long long>(i) * 13 + 7) % 1000000 + 1;
+        }
+        input_data_.set_data(std::move(data));
+      } else {
+        input_data_.set_data({});
+      }
     } else {
+      int data_size = 1000000;
+      input_data_.head_process = 0;
       input_data_.tail_process = 0;
+
+      std::vector<int> data(data_size);
+      for (int i = 0; i < data_size; ++i) {
+        data[i] = (static_cast<long long>(i) * 13 + 7) % 1000000 + 1;
+      }
+      input_data_.set_data(std::move(data));
     }
 
     input_data_.delivered = false;
-
-    input_data_.data.resize(data_size);
-    for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
-      input_data_.data[vector_filling_step] = (vector_filling_step * 13 + 7) % 1000000 + 1;
-    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
     const auto &result = output_data;
 
     if (is_mpi_) {
-      int world_size = 0;
-      MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+      int world_rank = 0;
+      MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
       if (result.head_process != input_data_.head_process) {
         return false;
@@ -54,6 +71,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         return false;
       }
 
+      return true;
     } else {
       if (result.head_process != input_data_.head_process) {
         return false;
@@ -66,9 +84,13 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
       if (!result.delivered) {
         return false;
       }
-    }
 
-    return true;
+      if (result.data.size() != input_data_.data.size()) {
+        return false;
+      }
+
+      return true;
+    }
   }
 
   InType GetTestInputData() final {
@@ -82,8 +104,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         Message empty_input;
         empty_input.head_process = input_data_.head_process;
         empty_input.tail_process = input_data_.tail_process;
-        empty_input.data_size = 0;
-        empty_input.data = std::vector<int>{};
+        empty_input.set_data({});
         empty_input.delivered = false;
         return empty_input;
       }

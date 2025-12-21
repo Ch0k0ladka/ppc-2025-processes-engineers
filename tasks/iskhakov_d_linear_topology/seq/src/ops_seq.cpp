@@ -16,11 +16,28 @@ IskhakovDLinearTopologySEQ::IskhakovDLinearTopologySEQ(const InType &in) {
 bool IskhakovDLinearTopologySEQ::ValidationImpl() {
   const auto &input = GetInput();
 
-  if ((!input.data.empty()) && (!input.delivered)) {
-    return true;
+  if (input.head_process < 0) {
+    return false;
   }
 
-  return false;
+  if (input.tail_process < 0) {
+    return false;
+  }
+
+  if (input.head_process != input.tail_process) {
+    return false;
+  }
+
+  // Проверяем данные
+  if (input.data.empty()) {
+    return false;
+  }
+
+  if (input.delivered) {
+    return false;
+  }
+
+  return true;
 }
 
 bool IskhakovDLinearTopologySEQ::PreProcessingImpl() {
@@ -30,22 +47,13 @@ bool IskhakovDLinearTopologySEQ::PreProcessingImpl() {
 bool IskhakovDLinearTopologySEQ::RunImpl() {
   const auto &input = GetInput();
 
-  int head_process = input.head_process;
-  int tail_process = input.tail_process;
-
-  std::vector<int> local_data(input.data.begin(), input.data.end());
-  int local_size = local_data.size();
-  bool delivered = true;
-
   Message result;
-  result.head_process = head_process;
-  result.tail_process = tail_process;
-  result.data_size = local_size;
-  result.data = local_data;
-  result.delivered = delivered;
+  result.head_process = input.head_process;
+  result.tail_process = input.tail_process;
+  result.set_data(input.data);
+  result.delivered = true;
 
   GetOutput() = result;
-
   return true;
 }
 

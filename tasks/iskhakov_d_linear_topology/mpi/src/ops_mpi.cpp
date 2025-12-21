@@ -77,12 +77,10 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
 
   if (head_process == tail_process) {
     if (world_rank == head_process) {
-      result.data = input.data;
-      result.data_size = static_cast<int>(input.data.size());
+      result.set_data(input.data);
       result.delivered = true;
     } else {
-      result.data = {};
-      result.data_size = 0;
+      result.set_data({});
       result.delivered = false;
     }
     GetOutput() = result;
@@ -90,7 +88,6 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   }
 
   int direction;
-
   if (head_process < tail_process) {
     direction = 1;
   } else {
@@ -105,8 +102,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   }
 
   if (!participate) {
-    result.data = {};
-    result.data_size = 0;
+    result.set_data({});
     result.delivered = false;
     GetOutput() = result;
     return true;
@@ -127,39 +123,39 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   }
 
   std::vector<int> local_data;
+  int local_data_size = 0;
 
   if (is_head) {
     local_data = input.data;
+    local_data_size = static_cast<int>(local_data.size());
 
-    int local_data_size = static_cast<int>(local_data.size());
-    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
-    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+    MPI_Request requests[2];
+    MPI_Isend(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD, &requests[0]);
+    MPI_Isend(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD, &requests[1]);
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
-    result.data = local_data;
-    result.data_size = local_data_size;
-    result.delivered = true;
+    result.set_data(local_data);
+    result.delivered = false;
   } else if (is_tail) {
-    int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    result.data = std::move(local_data);
-    result.data_size = local_data_size;
+    result.set_data(std::move(local_data));
     result.delivered = true;
   } else {
-    int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
-    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+    MPI_Request requests[2];
+    MPI_Isend(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD, &requests[0]);
+    MPI_Isend(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD, &requests[1]);
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
-    result.data = {};
-    result.data_size = 0;
+    result.set_data({});
     result.delivered = false;
   }
 

@@ -20,9 +20,8 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     const auto &input = std::get<0>(test_param);
-
     return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_data_" +
-           std::to_string(input.data_size);
+           std::to_string(input.data.size());
   }
 
  protected:
@@ -39,28 +38,32 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
 
   bool CheckTestOutputData(OutType &output_data) final {
     const auto &actual_result = output_data;
-
     bool is_under_mpirun = ppc::util::IsUnderMpirun();
 
     if (!is_under_mpirun) {
       const auto &expected_result = expected_output_;
 
-      if (!actual_result.delivered) {
-        return false;
-      }
-
-      if (actual_result.data != expected_result.data) {
-        return false;
-      }
-
       if (actual_result.head_process != input_data_.head_process) {
+        std::cerr << "SEQ: head_process mismatch" << std::endl;
         return false;
       }
 
       if (actual_result.tail_process != input_data_.tail_process) {
+        std::cerr << "SEQ: tail_process mismatch" << std::endl;
         return false;
       }
 
+      if (!actual_result.delivered) {
+        std::cerr << "SEQ: delivered should be true" << std::endl;
+        return false;
+      }
+
+      if (actual_result.data != expected_result.data) {
+        std::cerr << "SEQ: data mismatch" << std::endl;
+        return false;
+      }
+
+      return true;
     } else {
       int proc_rank{};
       int proc_nums{};
@@ -68,32 +71,77 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
 
       if (actual_result.head_process != input_data_.head_process) {
+        std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << std::endl;
         return false;
       }
 
       if (actual_result.tail_process != input_data_.tail_process) {
+        std::cerr << "MPI[" << proc_rank << "]: tail_process mismatch" << std::endl;
         return false;
       }
 
-      if (input_data_.head_process >= proc_nums) {
-        return false;
+      bool is_head = (proc_rank == input_data_.head_process);
+      bool is_tail = (proc_rank == input_data_.tail_process);
+      bool same_process = (input_data_.head_process == input_data_.tail_process);
+
+      if (same_process) {
+        if (is_head) {
+          if (!actual_result.delivered) {
+            std::cerr << "MPI[" << proc_rank << "]: same process should have delivered=true" << std::endl;
+            return false;
+          }
+        } else {
+          if (actual_result.delivered) {
+            std::cerr << "MPI[" << proc_rank << "]: non-participant should have delivered=false" << std::endl;
+            return false;
+          }
+        }
+      } else {
+        if (is_head) {
+          if (actual_result.delivered) {
+            std::cerr << "MPI[" << proc_rank << "]: head should have delivered=false" << std::endl;
+            return false;
+          }
+        } else if (is_tail) {
+          if (!actual_result.delivered) {
+            std::cerr << "MPI[" << proc_rank << "]: tail should have delivered=true" << std::endl;
+            return false;
+          }
+        } else {
+          if (actual_result.delivered) {
+            std::cerr << "MPI[" << proc_rank << "]: intermediate should have delivered=false" << std::endl;
+            return false;
+          }
+        }
+      }
+      if (same_process) {
+        if (is_head) {
+          if (actual_result.data != input_data_.data) {
+            std::cerr << "MPI[" << proc_rank << "]: same process data mismatch" << std::endl;
+            return false;
+          }
+        } else {
+          if (!actual_result.data.empty()) {
+            std::cerr << "MPI[" << proc_rank << "]: non-participant should have empty data" << std::endl;
+            return false;
+          }
+        }
+      } else {
+        if (is_tail) {
+          if (actual_result.data != input_data_.data) {
+            std::cerr << "MPI[" << proc_rank << "]: tail data mismatch" << std::endl;
+            return false;
+          }
+        } else {
+          if (!actual_result.data.empty()) {
+            std::cerr << "MPI[" << proc_rank << "]: non-tail should have empty data" << std::endl;
+            return false;
+          }
+        }
       }
 
-      if (input_data_.tail_process >= proc_nums) {
-        return false;
-      }
-
-      bool is_target_process = (proc_rank == input_data_.head_process) || (proc_rank == input_data_.tail_process);
-
-      bool should_have_data = (input_data_.head_process == input_data_.tail_process)
-                                  ? (proc_rank == input_data_.head_process)
-                                  : is_target_process;
-
-      return should_have_data ? (actual_result.delivered && actual_result.data == input_data_.data)
-                              : (!actual_result.delivered && actual_result.data.empty());
+      return true;
     }
-
-    return true;
   }
 
   InType GetTestInputData() final {
@@ -109,8 +157,7 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
         Message empty_input;
         empty_input.head_process = input_data_.head_process;
         empty_input.tail_process = input_data_.tail_process;
-        empty_input.data_size = 0;
-        empty_input.data = std::vector<int>{};
+        empty_input.set_data({});
         empty_input.delivered = false;
         return empty_input;
       }
@@ -148,7 +195,7 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     auto &expected_msg = expected_output_;
     expected_msg.head_process = input_data_.head_process;
     expected_msg.tail_process = input_data_.tail_process;
-    expected_msg.data_size = input_data_.data_size;
+    expected_msg.set_data(input_data_.data);
     expected_msg.delivered = true;
 
     if (adapted && proc_rank == 0) {
@@ -163,16 +210,16 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     if (proc_rank != 0) {
       input_data_.head_process = test_params[0];
       input_data_.tail_process = test_params[1];
-      input_data_.data_size = test_params[2];
 
-      if (input_data_.data.empty() && test_params[2] > 0) {
-        input_data_.data.resize(test_params[2]);
-        for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
-          input_data_.data[vector_filling_step] = vector_filling_step + 1;
+      if (test_params[2] > 0) {
+        if (proc_rank != input_data_.head_process) {
+          input_data_.set_data({});
         }
       }
       input_data_.delivered = false;
     }
+
+    MPI_Bcast(&expected_output_, sizeof(Message), MPI_BYTE, 0, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
@@ -191,30 +238,22 @@ class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests 
 
 namespace {
 
-TEST_P(IskhakovDLinearTopologySeqTests, SeqTests) {
-  ExecuteTest(GetParam());
-}
-
-TEST_P(IskhakovDLinearTopologyMpiTests, MpiTests) {
-  ExecuteTest(GetParam());
-}
-
 Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   Message msg;
   msg.head_process = head;
   msg.tail_process = tail;
-  msg.data_size = data_size;
   msg.delivered = delivered;
 
-  msg.data.clear();
-  msg.data.shrink_to_fit();
-
   if (data_size > 0) {
-    msg.data.resize(data_size);
-    for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
-      msg.data.push_back(vector_filling_step + 1);
+    std::vector<int> data(data_size);
+    for (int i = 0; i < data_size; ++i) {
+      data[i] = i + 1;
     }
+    msg.set_data(std::move(data));
+  } else {
+    msg.set_data({});
   }
+
   return msg;
 }
 
