@@ -157,8 +157,12 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       adapted = true;
     }
 
-    std::get<0>(expected_output_).head_process = input_data_.head_process;
-    std::get<0>(expected_output_).tail_process = input_data_.tail_process;
+    auto& expected_msg = std::get<0>(expected_output_);
+    expected_msg.head_process = input_data_.head_process;
+    expected_msg.tail_process = input_data_.tail_process;
+    expected_msg.data_size = input_data_.data_size;
+    expected_msg.delivered = true;
+
     std::get<1>(expected_output_) = proc_nums;
 
     if (adapted && proc_rank == 0) {
@@ -173,9 +177,9 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     if (proc_rank != 0) {
       input_data_.head_process = test_params[0];
       input_data_.tail_process = test_params[1];
-      input_data_.data_size = test_params[2];  // ← Добавил!
+      input_data_.data_size = test_params[2];
 
-      if (input_data_.data.empty()) {
+      if (input_data_.data.empty() && test_params[2] > 0) {
         input_data_.data.resize(test_params[2]);
         for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
           input_data_.data[vector_filling_step] = vector_filling_step + 1;
@@ -215,7 +219,10 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   msg.tail_process = tail;
   msg.data_size = data_size;
   msg.delivered = delivered;
+
   msg.data.clear();
+  msg.data.shrink_to_fit();
+  
   if (data_size > 0) {
     msg.data.resize(data_size);
     for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
@@ -233,20 +240,20 @@ const std::array<TestType, 14> kMpiParam = {
     TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
     TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}},
 
-    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 10, true), 2}},
+    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 15, true), 2}},
     TestType{CreateMessage(1, 0, 20, false), OutType{CreateMessage(1, 0, 20, true), 2}},
 
-    TestType{CreateMessage(0, 2, 25, false), OutType{CreateMessage(0, 2, 15, true), 3}},
-    TestType{CreateMessage(2, 0, 30, false), OutType{CreateMessage(2, 0, 20, true), 3}},
-    TestType{CreateMessage(1, 2, 35, false), OutType{CreateMessage(1, 2, 15, true), 3}},
-    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 20, true), 3}},
+    TestType{CreateMessage(0, 2, 25, false), OutType{CreateMessage(0, 2, 25, true), 3}},
+    TestType{CreateMessage(2, 0, 30, false), OutType{CreateMessage(2, 0, 30, true), 3}},
+    TestType{CreateMessage(1, 2, 35, false), OutType{CreateMessage(1, 2, 35, true), 3}},
+    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 40, true), 3}},
 
-    TestType{CreateMessage(0, 3, 45, false), OutType{CreateMessage(0, 3, 15, true), 4}},
-    TestType{CreateMessage(3, 0, 50, false), OutType{CreateMessage(3, 0, 20, true), 4}},
-    TestType{CreateMessage(1, 3, 55, false), OutType{CreateMessage(1, 3, 15, true), 4}},
-    TestType{CreateMessage(3, 1, 60, false), OutType{CreateMessage(3, 1, 20, true), 4}},
-    TestType{CreateMessage(2, 3, 65, false), OutType{CreateMessage(2, 3, 15, true), 4}},
-    TestType{CreateMessage(3, 2, 70, false), OutType{CreateMessage(3, 2, 20, true), 4}}};
+    TestType{CreateMessage(0, 3, 45, false), OutType{CreateMessage(0, 3, 45, true), 4}},
+    TestType{CreateMessage(3, 0, 50, false), OutType{CreateMessage(3, 0, 50, true), 4}},
+    TestType{CreateMessage(1, 3, 55, false), OutType{CreateMessage(1, 3, 55, true), 4}},
+    TestType{CreateMessage(3, 1, 60, false), OutType{CreateMessage(3, 1, 60, true), 4}},
+    TestType{CreateMessage(2, 3, 65, false), OutType{CreateMessage(2, 3, 65, true), 4}},
+    TestType{CreateMessage(3, 2, 70, false), OutType{CreateMessage(3, 2, 70, true), 4}}};
 
 const auto kSeqTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<IskhakovDLinearTopologySEQ, InType>(kSeqParam, PPC_SETTINGS_iskhakov_d_linear_topology));
