@@ -24,7 +24,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
       int world_size = 0;
       MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-      int data_size = 1000000;
+      int data_size = 25000000;
 
       input_data_.head_process = 0;
       input_data_.tail_process = std::min(3, world_size - 1);
@@ -42,7 +42,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         input_data_.set_data({});
       }
     } else {
-      int data_size = 1000000;
+      int data_size = 25000000;
       input_data_.head_process = 0;
       input_data_.tail_process = 0;
 

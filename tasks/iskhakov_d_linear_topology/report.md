@@ -5,14 +5,14 @@
 **Вариант:** '6'
 
 ## 1. Введение
-Реализация передачи данных от одно процесса к другому путём линейной обработки. Проще говоря передача данных от процесса 0 данных в процесс 3 с помощью последовательной реализации, в которой информация сначала отправляется в процесс 1 (ближайший сосед, т.к 0 < 3  идём повозрастающей), после из процесса 1 в процесс 2, а уже потом из процесса 2 в процесс 3. Задача созранить данные сугубо в процессе, являющимся пунктом назначения, не сохраняя их в попутных процессах 
+Реализация передачи данных от одного процесса к другому путём линейной обработки. Проще говоря передача данных от процесса 0 данных в процесс 3 с помощью последовательной реализации, в которой информация сначала отправляется в процесс 1 (ближайший сосед, т.к 0 < 3  идём по возрастающей), после из процесса 1 в процесс 2, а уже потом из процесса 2 в процесс 3. Задача сохранить данные сугубо в процессе, являющемся пунктом назначения, не сохраняя их в попутных процессах 
 (0->1; 1->2; 2->3)
 
 ## 2. Постановка задачи
 **Формальная задача**: Реализовать алгоритм передачи вектора целых чисел от заданного процесса-источника (head) к заданному процессу-приёмнику (tail) через цепочку промежуточных процессов в соответствии с линейной топологией.
 
 **Входные данные**:
-Структура Massege включающая в себя такие парраметры, как: 
+Структура Message включающая в себя такие парраметры, как: 
  * head_process (int) — ранг процесса-источника
 
  * tail_process (int) — ранг процесса-приёмника
@@ -22,7 +22,7 @@
  * delivered (bool) — флаг, указывающий, были ли данные уже доставлены (входное значение всегда false) 
 
 **Выходные данные**: 
-Та же структура Massege только с добавлением параметра отвечающего за количество процессов
+Та же структура Message
 
  * Message структура:
 
@@ -32,15 +32,13 @@
 
  *  data (std::vector<int>) — вектор данных - на процессах head и tail: содержит переданные данные, на остальных процессах: пустой вектор
 
- *  delivered (bool) - на процессах head и tail: true, на остальных процессах: false
-
- * Количество процессов / processes_number (int) — общее число процессов в коммуникаторе MPI
+ *  delivered (bool) - на процессе tail: true, на остальных процессах: false
 
 **Ограничения**:
 
  * Индексы head_process и tail_process должны находиться в диапазоне [0, world_size-1]
 
- * На процессе-источнике вектор данных не должен быть пустым
+ * На head_process вектор данных не должен быть пустым
 
  * Флаг delivered на входе всегда должен быть false
 
@@ -49,22 +47,18 @@
 ## 3. Базовый алгоритм (Последовательный)
 
 ```cpp
-const auto &input = GetInput();
-
-  int head_process = input.head_process;
-  int tail_process = input.tail_process;
-  std::vector<int> local_data = input.data;
-  bool delivered = true;
-
-  Message result;
-  result.head_process = head_process;
-  result.tail_process = tail_process;
-  result.data = local_data;
-  result.delivered = delivered;
-
-  GetOutput() = std::make_tuple(result, 1);
-
-  return true;
+bool IskhakovDLinearTopologySEQ::RunImpl() {
+    const auto &input = GetInput();
+    Message result;
+    
+    result.head_process = input.head_process;
+    result.tail_process = input.tail_process;
+    result.set_data(input.data);  
+    result.delivered = true;    
+    
+    GetOutput() = result;
+    return true;
+}
 ```
 
 ## 4. Схема распараллеливания
@@ -72,7 +66,7 @@ const auto &input = GetInput();
 
 ```cpp
 
-  if (input.head_process < 0) {
+if (input.head_process < 0) {
     return false;
   }
   if (input.head_process >= world_size) {
@@ -85,27 +79,17 @@ const auto &input = GetInput();
   if (input.tail_process >= world_size) {
     return false;
   }
-
-  int is_valid_local = 1;
-
-  if (world_rank == input.head_process) {
-    if (input.data.empty() || input.delivered) {
-      is_valid_local = 0;
-    }
-  }
 ```
 
 ``` cpp
- if (head_process == tail_process) {
-    if (world_rank == head_process) {
-      result.data = input.data;
-      result.delivered = true;
-    } else {
-      result.data = {};
-      result.delivered = false;
+
+  if (world_rank == input.head_process) {
+    if (input.data.empty()) {
+      is_valid_local = 0;
     }
-    GetOutput() = std::make_pair(result, world_size);
-    return true;
+    if (input.delivered) {
+      is_valid_local = 0;
+    }
   }
 ```
 
@@ -121,7 +105,7 @@ const auto &input = GetInput();
   }
 ```
 
-### 4.3 Отбрасывание процессов, не учавствующих в передаче данных
+### 4.3 Отбрасывание процессов, не участвующих в передаче данных
 Те процессы, которые либо вне Головы и Хвоста (пример: голова 1, хвост 3, процесс 0 отбрасывается, т.к не принимает участие в передаче данных)
 
 ``` cpp
@@ -133,48 +117,49 @@ const auto &input = GetInput();
   }
 
   if (!participate) {
-    result.data = {};
+    result.set_data({});
     result.delivered = false;
-    GetOutput() = std::make_pair(result, world_size);
+    GetOutput() = result;
     return true;
   }
-
 ```
 
-### 4.4 Передача данных
+### 4.4 Логика передачи данных
 
 ```cpp
 if (is_head) {
     local_data = input.data;
+    local_data_size = static_cast<int>(local_data.size());
 
-    int local_data_size = static_cast<int>(local_data.size());
-    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
-    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+    MPI_Request requests[2];
+    MPI_Isend(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD, &requests[0]);
+    MPI_Isend(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD, &requests[1]);
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
-    result.data = local_data;
-    result.delivered = true;
+    result.set_data(local_data);
+    result.delivered = false;
   } else if (is_tail) {
-    int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    result.data = std::move(local_data);
+    result.set_data(std::move(local_data));
     result.delivered = true;
   } else {
-    int local_data_size = 0;
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     local_data.resize(local_data_size);
     MPI_Recv(local_data.data(), local_data_size, MPI_INT, previous_process, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    MPI_Send(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD);
-    MPI_Send(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD);
+    MPI_Request requests[2];
+    MPI_Isend(&local_data_size, 1, MPI_INT, next_process, 0, MPI_COMM_WORLD, &requests[0]);
+    MPI_Isend(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD, &requests[1]);
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
-    result.data = {};
+    result.set_data({});
     result.delivered = false;
-}
+  }
 ```
 
 ## 5. Детали реализации
@@ -194,6 +179,8 @@ struct Message {
  * MPI_Comm_size, MPI_Comm_rank — получение информации о размере коммуникатора и ранге процесса
 
  * MPI_Send, MPI_Recv — отправка и приём данных
+
+ * MPI_Isend, MPI_Waitall — неблокирующие операции для предотвращения deadlock
 
  * MPI_Allreduce — коллективная операция для синхронизации результатов валидации
 
@@ -215,54 +202,73 @@ struct Message {
  * Количество процессов MPI (1, 2, 4)
 
 - **Data:**  
- * Для функциональных тестов: вектора размером от 5 до 20
+ * Для функциональных тестов: вектора размером от 5 до 70
 
- * Для тестов производительности: вектора размером от 5000, до 10000
+ * "вектор из 25 000 000 элементов (100 MB данных)"
 
 ## 7. Результаты и обсуждение
 
 ### 7.1 Корректность
 **Метод проверки**:
-Реализованы функциональные тесты на базе Google Test Framework. Тесты проверяют:
 
-  * Корректность передачи данных от head к tail процессу
+ * **SEQ тесты** (2 теста): проверка базовой функциональности на одном процессе
+ * **MPI тесты** (14 тестов): проверка распределенной работы на 2+ процессах
 
-  * Соответствие выходных данных входным на head и tail процессах
+**Проверяемые аспекты**:
 
-  * Пустые данные и флаг delivered = false на непосещающих процессах
+* **Корректность передачи данных**: данные успешно доставляются от head к tail процессу
+* **Семантика флага delivered**: 
+  - tail процесс: delivered = true (данные получены)
+  - head процесс: delivered = false (данные отправлены, подтверждение не получено)
+  - промежуточные процессы: delivered = false (только передатчики)
+  - непричастные процессы: delivered = false
+* **Целостность данных**: 
+  - tail процесс получает точную копию исходных данных
+  - head процесс сохраняет исходные данные для отладки
+  - промежуточные процессы не сохраняют данные
+* **Граничные случаи**:
+  - head == tail (один процесс)
+  - head < tail (передача вперед)
+  - head > tail (передача назад)
+  - невалидные индексы
+  - пустые данные на head процессе
+  - already delivered данные
 
-  * Обработку граничных случаев (head == tail, невалидные индексы)
+**Тестовые сценарии**:
 
-**Тестовые случаи**:
+1. **Базовые случаи** (head == tail):
+   - 5 элементов на процессе 0
+   - 10 элементов на процессе 0
 
-  * SingleProcess: head = tail = 0, проверка тривиального случая
+2. **Передача между соседними процессами**:
+   - 0 → 1 (15 элементов)
+   - 1 → 0 (20 элементов)
 
-  * TwoProcesses: head = 0, tail = 1, минимальная передача между двумя процессами
+3. **Передача через промежуточные процессы**:
+   - 0 → 2 (25 элементов) через процесс 1
+   - 2 → 0 (30 элементов) через процесс 1
+   - 1 → 2 (35 элементов)
+   - 2 → 1 (40 элементов)
 
-  * ThreeOrMoreProcesses: head = 0, tail = size-1, передача через все процессы
-
-  * FourOrMoreProcesses: head = 0, tail = size-1, длинная цепочка передачи
-
-**Проверка инвариантов**:
-
-  * На head и tail процессах флаг delivered всегда true
-
-  * На непосещающих процессах флаг delivered всегда false
-
-  * Данные на head и tail процессах всегда совпадают с отправленными
-
-  * Данные на промежуточных процессах всегда пусты
+4. **Длинные цепочки передачи**:
+   - 0 → 3 (45 элементов) через процессы 1, 2
+   - 3 → 0 (50 элементов) через процессы 2, 1
+   - 1 → 3 (55 элементов) через процесс 2
+   - 3 → 1 (60 элементов) через процесс 2
+   - 2 → 3 (65 элементов)
+   - 3 → 2 (70 элементов)
 
 ### 7.2 Производительность
-Present time, speedup and efficiency. Example table:
+Результаты тестов производительности для вектора из 25 000 000 целых чисел:
 
-| Mode  | Count    | Time, s   | Speedup   | Efficiency    |
-|-------|----------|-----------|-----------|---------------|
-| seq   | 1        | 0.6970    |   1.00    |     1.00      |
-| mpi   | 2        | 1.1581    |   0.60    |     0.30      |
-| mpi   | 4        | 1.8200    |   0.38    |     0.10      |
+| Mode  | Процессов | Время, с   | Speedup  | Efficiency |
+|-------|-----------|------------|----------|------------|
+| seq   | 1         | 0.0790     | 1.00     | 1.00       |
+| mpi   | 2         | 0.2556     | 0.31     | 0.15       |
+| mpi   | 4         | 0.3425     | 0.23     | 0.06       |
 
-- Программа показала лишь замедление выполнения (0.38× на 4 процессах)
+
+- Программа показала лишь замедление выполнения (0.23х на 4 процессах)
 - Низкая эффективность (<20% на 4 процессах)
 
 ## 8. Выводы

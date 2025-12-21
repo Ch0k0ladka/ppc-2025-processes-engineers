@@ -28,7 +28,6 @@ bool IskhakovDLinearTopologySEQ::ValidationImpl() {
     return false;
   }
 
-  // Проверяем данные
   if (input.data.empty()) {
     return false;
   }
