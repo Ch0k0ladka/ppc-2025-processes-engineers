@@ -23,8 +23,8 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     const auto &output = std::get<1>(test_param);
     int process_count = std::get<1>(output);
 
-    return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) +
-           "_processes_" + std::to_string(process_count);
+    return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_data_" +
+           std::to_string(input.data_size) + "_processes_" + std::to_string(process_count);
   }
 
  protected:
@@ -121,6 +121,7 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
         Message empty_input;
         empty_input.head_process = input_data_.head_process;
         empty_input.tail_process = input_data_.tail_process;
+        empty_input.data_size = 0;
         empty_input.data = std::vector<int>{};
         empty_input.delivered = false;
         return empty_input;
@@ -172,6 +173,7 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     if (proc_rank != 0) {
       input_data_.head_process = test_params[0];
       input_data_.tail_process = test_params[1];
+      input_data_.data_size = test_params[2];  // ← Добавил!
 
       if (input_data_.data.empty()) {
         input_data_.data.resize(test_params[2]);
@@ -211,6 +213,7 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   Message msg;
   msg.head_process = head;
   msg.tail_process = tail;
+  msg.data_size = data_size;
   msg.delivered = delivered;
   msg.data.clear();
   if (data_size > 0) {

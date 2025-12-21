@@ -20,6 +20,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
     int data_size = 100000000;
 
     input_data_.head_process = 0;
+    input_data_.data_size = data_size;
 
     auto task_info = std::get<1>(GetParam());
     is_mpi_ = task_info.find("mpi") != std::string::npos;
@@ -90,6 +91,7 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         Message empty_input;
         empty_input.head_process = input_data_.head_process;
         empty_input.tail_process = input_data_.tail_process;
+        empty_input.data_size = 0;
         empty_input.data = std::vector<int>{};
         empty_input.delivered = false;
         return empty_input;

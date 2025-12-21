@@ -40,6 +40,7 @@ bool IskhakovDLinearTopologySEQ::RunImpl() {
   Message result;
   result.head_process = head_process;
   result.tail_process = tail_process;
+  result.data_size = static_cast<int>(local_data.size());
   result.data = local_data;
   result.delivered = delivered;
 
