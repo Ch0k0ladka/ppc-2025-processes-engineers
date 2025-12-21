@@ -181,6 +181,12 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
 
     IskhakovDLinearTopologyFuncTests::SetUp();
 
+    expected_output_ = Message{};
+    expected_output_.head_process = -1;
+    expected_output_.tail_process = -1;
+    expected_output_.set_data({});
+    expected_output_.delivered = false;
+
     bool adapted = false;
     if (input_data_.head_process >= proc_nums) {
       input_data_.head_process = proc_nums - 1;
