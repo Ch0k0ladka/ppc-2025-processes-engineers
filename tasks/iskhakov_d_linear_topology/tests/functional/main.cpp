@@ -23,8 +23,12 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     const auto &output = std::get<1>(test_param);
     int process_count = std::get<1>(output);
 
-    return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_data_" +
-           std::to_string(input.data.size()) + "_processes_" + std::to_string(process_count);
+    int local_head_process = input.head_process;
+    int local_tail_process = input.tail_process;
+    int local_data_size = input.data.size();
+
+    return "head_" + std::to_string(local_head_process) + "_tail_" + std::to_string(local_tail_process) +
+           "_size_of_data_" + std::to_string(local_data_size) + "_processes_" + std::to_string(process_count);
   }
 
  protected:
