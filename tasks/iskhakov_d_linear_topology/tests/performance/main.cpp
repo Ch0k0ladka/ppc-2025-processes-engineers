@@ -1,130 +1,139 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 
-#include <chrono>
-#include <iostream>
+#include <array>
+#include <string>
 #include <tuple>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
 #include "iskhakov_d_linear_topology/mpi/include/ops_mpi.hpp"
+#include "iskhakov_d_linear_topology/seq/include/ops_seq.hpp"
+#include "util/include/perf_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace iskhakov_d_linear_topology {
 
-class MpiBarrierGuard {
- public:
-  MpiBarrierGuard() {}
-  ~MpiBarrierGuard() {
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-};
-
-class LinearTopologyPerfTest : public ::testing::Test {
+class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-    MPI_Comm_size(MPI_COMM_WORLD, &size_);
-  }
+    int data_size = 100000000;
 
-  std::vector<int> make_data(int count) {
-    std::vector<int> data(count);
-    for (int i = 0; i < count; ++i) {
-      data[i] = i * 10;
-    }
-    return data;
-  }
+    input_data_.head_process = 0;
 
-  double measure_time(int head, int tail, const std::vector<int> &data) {
-    Message input;
-    input.head_process = head;
-    input.tail_process = tail;
-    input.data = (rank_ == head) ? data : std::vector<int>{};
-    input.delivered = false;
+    auto task_info = std::get<1>(GetParam());
+    is_mpi_ = task_info.find("mpi") != std::string::npos;
 
-    IskhakovDLinearTopologyMPI algorithm(input);
-
-    if (!algorithm.Validation()) {
-      return -1.0;
+    if (is_mpi_) {
+      input_data_.tail_process = 3;
+    } else {
+      input_data_.tail_process = 0;
     }
 
-    algorithm.PreProcessing();
+    input_data_.delivered = false;
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    auto start = std::chrono::high_resolution_clock::now();
-    algorithm.Run();
-    algorithm.PostProcessing();
-    auto end = std::chrono::high_resolution_clock::now();
-
-    std::chrono::duration<double> duration = end - start;
-    return duration.count() * 1000;
+    input_data_.data.resize(data_size);
+    for (int i = 0; i < data_size; ++i) {
+      input_data_.data[i] = (i * 13 + 7) % 1000000 + 1;
+    }
   }
 
-  int rank_;
-  int size_;
+  bool CheckTestOutputData(OutType &output_data) final {
+    const auto &result = std::get<0>(output_data);
+    int processes_number = std::get<1>(output_data);
+
+    if (is_mpi_) {
+      int world_size = 0;
+      MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+      if (processes_number != world_size) {
+        return false;
+      }
+
+      if (result.head_process != input_data_.head_process || result.tail_process != input_data_.tail_process) {
+        return false;
+      }
+
+    } else {
+      if (processes_number != 1) {
+        return false;
+      }
+
+      if (result.head_process != input_data_.head_process || result.tail_process != input_data_.tail_process) {
+        return false;
+      }
+
+      if (!result.delivered) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  InType GetTestInputData() final {
+    if (is_mpi_) {
+      int rank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+      if (rank == input_data_.head_process) {
+        return input_data_;
+      } else {
+        Message empty_input;
+        empty_input.head_process = input_data_.head_process;
+        empty_input.tail_process = input_data_.tail_process;
+        empty_input.data = std::vector<int>{};
+        empty_input.delivered = false;
+        return empty_input;
+      }
+    } else {
+      return input_data_;
+    }
+  }
+
+  Message input_data_;
+  bool is_mpi_;
 };
 
-TEST_F(LinearTopologyPerfTest, SingleProcess) {
-  MpiBarrierGuard guard;
-  std::vector<int> data = make_data(10000);
+TEST_P(IskhakovDLinearTopologyPerfTests, RunPerfModes) {
+  if (is_mpi_) {
+    if (!ppc::util::IsUnderMpirun()) {
+      std::cerr << "MPI perf tests are not under mpirun\n";
+      GTEST_SKIP();
+    }
 
-  double time_ms = measure_time(0, 0, data);
+    int world_size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  if (rank_ == 0) {
-    std::cout << "Single process: " << time_ms << " ms for 10000 elements" << std::endl;
+    if (input_data_.tail_process >= world_size) {
+      if (world_size > 0) {
+        input_data_.tail_process = world_size - 1;
+      } else {
+        input_data_.tail_process = 0;
+      }
+    }
 
-    EXPECT_LT(time_ms, 10.0);
+    if (input_data_.head_process >= world_size || input_data_.tail_process >= world_size) {
+      std::cerr << "Head or tail process out of bounds. World size: " << world_size
+                << ", head: " << input_data_.head_process << ", tail: " << input_data_.tail_process << "\n";
+      GTEST_SKIP();
+    }
   }
+
+  ExecuteTest(GetParam());
 }
 
-TEST_F(LinearTopologyPerfTest, TwoProcesses) {
-  MpiBarrierGuard guard;
-  if (size_ < 2) {
-    GTEST_SKIP() << "Need at least 2 processes";
-  }
+namespace {
 
-  std::vector<int> data = make_data(5000);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, IskhakovDLinearTopologyMPI, IskhakovDLinearTopologySEQ>(
+    PPC_SETTINGS_iskhakov_d_linear_topology);
 
-  double time_ms = measure_time(0, 1, data);
+const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
-  if (rank_ == 0) {
-    std::cout << "Two processes: " << time_ms << " ms for 5000 elements" << std::endl;
-    EXPECT_LT(time_ms, 100.0);
-  }
-}
+const auto kPerfTestName = IskhakovDLinearTopologyPerfTests::CustomPerfTestName;
 
-TEST_F(LinearTopologyPerfTest, ThreeOrMoreProcesses) {
-  MpiBarrierGuard guard;
-  if (size_ < 3) {
-    GTEST_SKIP() << "Need at least 3 processes";
-  }
+INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDLinearTopologyPerfTests, kGtestValues, kPerfTestName);
 
-  std::vector<int> data = make_data(10000);
-
-  double time_ms = measure_time(0, size_ - 1, data);
-
-  if (rank_ == 0) {
-    std::cout << size_ << " processes: " << time_ms << " ms for 10000 elements" << std::endl;
-
-    EXPECT_LT(time_ms, 500.0);
-  }
-}
-
-TEST_F(LinearTopologyPerfTest, FourOrMoreProcesses) {
-  MpiBarrierGuard guard;
-  if (size_ < 4) {
-    GTEST_SKIP() << "Need at least 4 processes";
-  }
-
-  std::vector<int> data = make_data(8000);
-
-  double time_ms = measure_time(0, size_ - 1, data);
-
-  if (rank_ == 0) {
-    std::cout << "Long chain (" << size_ << " processes): " << time_ms << " ms for 8000 elements" << std::endl;
-
-    EXPECT_LT(time_ms, 500.0);
-  }
-}
+}  // namespace
 
 }  // namespace iskhakov_d_linear_topology
