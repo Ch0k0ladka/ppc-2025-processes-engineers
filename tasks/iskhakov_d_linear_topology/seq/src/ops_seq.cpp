@@ -32,7 +32,14 @@ bool IskhakovDLinearTopologySEQ::RunImpl() {
 
   int head_process = input.head_process;
   int tail_process = input.tail_process;
-  std::vector<int> local_data = input.data;
+
+  std::vector<int> local_data;
+  if (!input.data.empty()) {
+    local_data = input.data;
+  } else {
+    local_data.clear();
+  }
+
   bool delivered = true;
 
   Message result;
