@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 
-#include <array>
+#include <iostream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -33,8 +33,8 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
     input_data_.delivered = false;
 
     input_data_.data.resize(data_size);
-    for (int i = 0; i < data_size; ++i) {
-      input_data_.data[i] = (i * 13 + 7) % 1000000 + 1;
+    for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
+      input_data_.data[vector_filling_step] = (vector_filling_step * 13 + 7) % 1000000 + 1;
     }
   }
 
@@ -50,7 +50,11 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         return false;
       }
 
-      if (result.head_process != input_data_.head_process || result.tail_process != input_data_.tail_process) {
+      if (result.head_process != input_data_.head_process) {
+        return false;
+      }
+
+      if (result.tail_process != input_data_.tail_process) {
         return false;
       }
 
@@ -59,7 +63,11 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
         return false;
       }
 
-      if (result.head_process != input_data_.head_process || result.tail_process != input_data_.tail_process) {
+      if (result.head_process != input_data_.head_process) {
+        return false;
+      }
+
+      if (result.tail_process != input_data_.tail_process) {
         return false;
       }
 

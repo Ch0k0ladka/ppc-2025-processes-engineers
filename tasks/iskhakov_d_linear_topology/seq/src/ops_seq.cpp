@@ -1,5 +1,6 @@
 #include "iskhakov_d_linear_topology/seq/include/ops_seq.hpp"
 
+#include <tuple>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"

@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 
+#include <algorithm>
 #include <array>
+#include <iostream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -41,24 +43,32 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     const auto &actual_result = std::get<0>(output_data);
     int actual_processes = std::get<1>(output_data);
 
-    const auto &expected_result = std::get<0>(expected_output_);
-    int expected_processes = std::get<1>(expected_output_);
-
     bool is_under_mpirun = ppc::util::IsUnderMpirun();
 
     if (!is_under_mpirun) {
+      const auto &expected_result = std::get<0>(expected_output_);
+      int expected_processes = std::get<1>(expected_output_);
+
       if (actual_processes != expected_processes) {
         return false;
       }
 
-      if (!actual_result.delivered || actual_result.data != expected_result.data) {
+      if (!actual_result.delivered) {
         return false;
       }
 
-      if (actual_result.head_process != input_data_.head_process ||
-          actual_result.tail_process != input_data_.tail_process) {
+      if (actual_result.data != expected_result.data) {
         return false;
       }
+
+      if (actual_result.head_process != input_data_.head_process) {
+        return false;
+      }
+
+      if (actual_result.tail_process != input_data_.tail_process) {
+        return false;
+      }
+
     } else {
       int proc_rank{};
       int proc_nums{};
@@ -69,36 +79,30 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
         return false;
       }
 
-      if (actual_result.head_process != input_data_.head_process ||
-          actual_result.tail_process != input_data_.tail_process) {
+      if (actual_result.head_process != input_data_.head_process) {
         return false;
       }
 
-      if (input_data_.head_process >= proc_nums || input_data_.tail_process >= proc_nums) {
+      if (actual_result.tail_process != input_data_.tail_process) {
         return false;
       }
 
-      if (input_data_.head_process == input_data_.tail_process) {
-        if (proc_rank == input_data_.head_process) {
-          if (!actual_result.delivered || actual_result.data != input_data_.data) {
-            return false;
-          }
-        } else {
-          if (actual_result.delivered || !actual_result.data.empty()) {
-            return false;
-          }
-        }
-      } else {
-        if (proc_rank == input_data_.head_process || proc_rank == input_data_.tail_process) {
-          if (!actual_result.delivered || actual_result.data != input_data_.data) {
-            return false;
-          }
-        } else {
-          if (actual_result.delivered || !actual_result.data.empty()) {
-            return false;
-          }
-        }
+      if (input_data_.head_process >= proc_nums) {
+        return false;
       }
+
+      if (input_data_.tail_process >= proc_nums) {
+        return false;
+      }
+
+      bool is_target_process = (proc_rank == input_data_.head_process) || (proc_rank == input_data_.tail_process);
+
+      bool should_have_data = (input_data_.head_process == input_data_.tail_process)
+                                  ? (proc_rank == input_data_.head_process)
+                                  : is_target_process;
+
+      return should_have_data ? (actual_result.delivered && actual_result.data == input_data_.data)
+                              : (!actual_result.delivered && actual_result.data.empty());
     }
 
     return true;
@@ -135,12 +139,45 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       GTEST_SKIP();
     }
 
-    IskhakovDLinearTopologyFuncTests::SetUp();
-
     int proc_rank{};
     int proc_nums{};
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
+
+    int test_params[3] = {0, 0, 0};
+
+    if (proc_rank == 0) {
+      IskhakovDLinearTopologyFuncTests::SetUp();
+
+      test_params[0] = input_data_.head_process;
+      test_params[1] = input_data_.tail_process;
+      test_params[2] = static_cast<int>(input_data_.data.size());
+    }
+
+    MPI_Bcast(test_params, 3, MPI_INT, 0, MPI_COMM_WORLD);
+
+    input_data_.head_process = test_params[0];
+    input_data_.tail_process = test_params[1];
+
+    if (proc_rank != 0) {
+      input_data_.data.resize(test_params[2]);
+      for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
+        input_data_.data[vector_filling_step] = vector_filling_step + 1;
+      }
+      input_data_.delivered = false;
+
+      Message expected_msg;
+      expected_msg.head_process = test_params[0];
+      expected_msg.tail_process = test_params[1];
+      expected_msg.delivered = true;
+      expected_msg.data.resize(test_params[2]);
+      for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
+        expected_msg.data[vector_filling_step] = vector_filling_step + 1;
+      }
+      expected_output_ = OutType{expected_msg, proc_nums};
+    } else {
+      std::get<1>(expected_output_) = proc_nums;
+    }
 
     if (input_data_.head_process >= proc_nums || input_data_.tail_process >= proc_nums) {
       if (proc_rank == 0) {
@@ -181,8 +218,8 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   msg.tail_process = tail;
   msg.delivered = delivered;
   msg.data.resize(data_size);
-  for (int i = 0; i < data_size; ++i) {
-    msg.data[i] = i + 1;
+  for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
+    msg.data[vector_filling_step] = vector_filling_step + 1;
   }
   return msg;
 }
