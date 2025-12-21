@@ -49,9 +49,26 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       const auto &expected_result = std::get<0>(expected_output_);
       int expected_processes = std::get<1>(expected_output_);
 
-      return (actual_processes == expected_processes) && actual_result.delivered &&
-             (actual_result.data == expected_result.data) && (actual_result.head_process == input_data_.head_process) &&
-             (actual_result.tail_process == input_data_.tail_process);
+      if (actual_processes != expected_processes) {
+        return false;
+      }
+
+      if (!actual_result.delivered) {
+        return false;
+      }
+
+      if (actual_result.data != expected_result.data) {
+        return false;
+      }
+
+      if (actual_result.head_process != input_data_.head_process) {
+        return false;
+      }
+
+      if (actual_result.tail_process != input_data_.tail_process) {
+        return false;
+      }
+
     } else {
       int proc_rank{};
       int proc_nums{};
@@ -61,35 +78,34 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       if (actual_processes != proc_nums) {
         return false;
       }
+
       if (actual_result.head_process != input_data_.head_process) {
         return false;
       }
+
       if (actual_result.tail_process != input_data_.tail_process) {
         return false;
       }
+
       if (input_data_.head_process >= proc_nums) {
         return false;
       }
+
       if (input_data_.tail_process >= proc_nums) {
         return false;
       }
 
       bool is_target_process = (proc_rank == input_data_.head_process) || (proc_rank == input_data_.tail_process);
 
-      if (input_data_.head_process == input_data_.tail_process) {
-        if (proc_rank == input_data_.head_process) {
-          return actual_result.delivered && (actual_result.data == input_data_.data);
-        } else {
-          return !actual_result.delivered && actual_result.data.empty();
-        }
-      } else {
-        if (is_target_process) {
-          return actual_result.delivered && (actual_result.data == input_data_.data);
-        } else {
-          return !actual_result.delivered && actual_result.data.empty();
-        }
-      }
+      bool should_have_data = (input_data_.head_process == input_data_.tail_process)
+                                  ? (proc_rank == input_data_.head_process)
+                                  : is_target_process;
+
+      return should_have_data ? (actual_result.delivered && actual_result.data == input_data_.data)
+                              : (!actual_result.delivered && actual_result.data.empty());
     }
+
+    return true;
   }
 
   InType GetTestInputData() final {
@@ -116,7 +132,65 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   }
 };
 
-bool SetupMpiTest(InType &input_data, int expected_proc_count);
+class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests {
+ protected:
+  void SetUp() override {
+    if (!ppc::util::IsUnderMpirun()) {
+      std::cerr << "MPI tests are not under mpirun\n";
+      GTEST_SKIP();
+    }
+
+    int proc_rank{};
+    int proc_nums{};
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
+
+    IskhakovDLinearTopologyFuncTests::SetUp();
+
+    bool adapted = false;
+    if (input_data_.head_process >= proc_nums) {
+      input_data_.head_process = proc_nums - 1;
+      adapted = true;
+    }
+    if (input_data_.tail_process >= proc_nums) {
+      input_data_.tail_process = proc_nums - 1;
+      adapted = true;
+    }
+
+    auto &expected_msg = std::get<0>(expected_output_);
+    expected_msg.head_process = input_data_.head_process;
+    expected_msg.tail_process = input_data_.tail_process;
+    expected_msg.data_size = input_data_.data_size;
+    expected_msg.delivered = true;
+
+    std::get<1>(expected_output_) = proc_nums;
+
+    if (adapted && proc_rank == 0) {
+      std::cout << "Adapted test: head_process=" << input_data_.head_process
+                << ", tail_process=" << input_data_.tail_process << " for " << proc_nums << " processes\n";
+    }
+
+    int test_params[3] = {input_data_.head_process, input_data_.tail_process,
+                          static_cast<int>(input_data_.data.size())};
+    MPI_Bcast(test_params, 3, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (proc_rank != 0) {
+      input_data_.head_process = test_params[0];
+      input_data_.tail_process = test_params[1];
+      input_data_.data_size = test_params[2];
+
+      if (input_data_.data.empty() && test_params[2] > 0) {
+        input_data_.data.resize(test_params[2]);
+        for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
+          input_data_.data[vector_filling_step] = vector_filling_step + 1;
+        }
+      }
+      input_data_.delivered = false;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+};
 
 class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests {
  protected:
@@ -129,128 +203,13 @@ class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests 
   }
 };
 
-class IskhakovDLinearTopologyMpi2ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-
-    if (!ppc::util::IsUnderMpirun()) {
-      std::cerr << "MPI tests are not under mpirun\n";
-      GTEST_SKIP();
-    }
-
-    if (!SetupMpiTest(input_data_, 2)) {
-      GTEST_SKIP();
-    }
-  }
-};
-
-class IskhakovDLinearTopologyMpi3ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-
-    if (!ppc::util::IsUnderMpirun()) {
-      std::cerr << "MPI tests are not under mpirun\n";
-      GTEST_SKIP();
-    }
-
-    if (!SetupMpiTest(input_data_, 3)) {
-      GTEST_SKIP();
-    }
-  }
-};
-
-class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncTests {
- protected:
-  void SetUp() override {
-    IskhakovDLinearTopologyFuncTests::SetUp();
-
-    if (!ppc::util::IsUnderMpirun()) {
-      std::cerr << "MPI tests are not under mpirun\n";
-      GTEST_SKIP();
-    }
-
-    if (!SetupMpiTest(input_data_, 4)) {
-      GTEST_SKIP();
-    }
-  }
-};
-
-bool SetupMpiTest(InType &input_data, int expected_proc_count) {
-  int proc_nums{};
-  int proc_rank{};
-  MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
-  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-
-  int should_skip = 0;
-  if (proc_nums != expected_proc_count) {
-    should_skip = 1;
-  }
-
-  int global_should_skip;
-  MPI_Allreduce(&should_skip, &global_should_skip, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-  if (global_should_skip) {
-    if (proc_rank == 0) {
-      std::cerr << "Tests should run on exactly " << expected_proc_count << " processes, but have " << proc_nums
-                << "\n";
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    return false;
-  }
-
-  bool adapted = false;
-  if (input_data.head_process >= proc_nums) {
-    input_data.head_process = proc_nums - 1;
-    adapted = true;
-  }
-  if (input_data.tail_process >= proc_nums) {
-    input_data.tail_process = proc_nums - 1;
-    adapted = true;
-  }
-
-  if (adapted && proc_rank == 0) {
-    std::cout << "Adapted test: head_process=" << input_data.head_process
-              << ", tail_process=" << input_data.tail_process << " for " << proc_nums << " processes\n";
-  }
-
-  int test_params[3] = {input_data.head_process, input_data.tail_process, static_cast<int>(input_data.data.size())};
-  MPI_Bcast(test_params, 3, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if (proc_rank != 0) {
-    input_data.head_process = test_params[0];
-    input_data.tail_process = test_params[1];
-    input_data.data_size = test_params[2];
-    input_data.delivered = false;
-
-    if (input_data.data.empty() && test_params[2] > 0) {
-      input_data.data.resize(test_params[2]);
-      for (int i = 0; i < test_params[2]; ++i) {
-        input_data.data[i] = i + 1;
-      }
-    }
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-  return true;
-}
-
 namespace {
 
 TEST_P(IskhakovDLinearTopologySeqTests, SeqTests) {
   ExecuteTest(GetParam());
 }
 
-TEST_P(IskhakovDLinearTopologyMpi2ProcTests, Mpi2ProcTests) {
-  ExecuteTest(GetParam());
-}
-
-TEST_P(IskhakovDLinearTopologyMpi3ProcTests, Mpi3ProcTests) {
-  ExecuteTest(GetParam());
-}
-
-TEST_P(IskhakovDLinearTopologyMpi4ProcTests, Mpi4ProcTests) {
+TEST_P(IskhakovDLinearTopologyMpiTests, MpiTests) {
   ExecuteTest(GetParam());
 }
 
@@ -261,13 +220,14 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   msg.data_size = data_size;
   msg.delivered = delivered;
 
+  msg.data.clear();
+  msg.data.shrink_to_fit();
+
   if (data_size > 0) {
     msg.data.resize(data_size);
-    for (int i = 0; i < data_size; ++i) {
-      msg.data[i] = i + 1;
+    for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
+      msg.data[vector_filling_step] = vector_filling_step + 1;
     }
-  } else {
-    msg.data.clear();
   }
   return msg;
 }
@@ -276,17 +236,18 @@ const std::array<TestType, 2> kSeqParam = {
     TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
     TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}}};
 
-const std::array<TestType, 2> kMpiParam2Proc = {
-    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 15, true), 2}},
-    TestType{CreateMessage(1, 0, 20, false), OutType{CreateMessage(1, 0, 20, true), 2}}};
+const std::array<TestType, 14> kMpiParam = {
+    TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
+    TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}},
 
-const std::array<TestType, 4> kMpiParam3Proc = {
+    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 15, true), 2}},
+    TestType{CreateMessage(1, 0, 20, false), OutType{CreateMessage(1, 0, 20, true), 2}},
+
     TestType{CreateMessage(0, 2, 25, false), OutType{CreateMessage(0, 2, 25, true), 3}},
     TestType{CreateMessage(2, 0, 30, false), OutType{CreateMessage(2, 0, 30, true), 3}},
     TestType{CreateMessage(1, 2, 35, false), OutType{CreateMessage(1, 2, 35, true), 3}},
-    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 40, true), 3}}};
+    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 40, true), 3}},
 
-const std::array<TestType, 6> kMpiParam4Proc = {
     TestType{CreateMessage(0, 3, 45, false), OutType{CreateMessage(0, 3, 45, true), 4}},
     TestType{CreateMessage(3, 0, 50, false), OutType{CreateMessage(3, 0, 50, true), 4}},
     TestType{CreateMessage(1, 3, 55, false), OutType{CreateMessage(1, 3, 55, true), 4}},
@@ -297,26 +258,16 @@ const std::array<TestType, 6> kMpiParam4Proc = {
 const auto kSeqTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<IskhakovDLinearTopologySEQ, InType>(kSeqParam, PPC_SETTINGS_iskhakov_d_linear_topology));
 
-const auto kMpiTasksList2Proc = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDLinearTopologyMPI, InType>(
-    kMpiParam2Proc, PPC_SETTINGS_iskhakov_d_linear_topology));
-
-const auto kMpiTasksList3Proc = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDLinearTopologyMPI, InType>(
-    kMpiParam3Proc, PPC_SETTINGS_iskhakov_d_linear_topology));
-
-const auto kMpiTasksList4Proc = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDLinearTopologyMPI, InType>(
-    kMpiParam4Proc, PPC_SETTINGS_iskhakov_d_linear_topology));
+const auto kMpiTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<IskhakovDLinearTopologyMPI, InType>(kMpiParam, PPC_SETTINGS_iskhakov_d_linear_topology));
 
 const auto kSeqGtestValues = ppc::util::ExpandToValues(kSeqTasksList);
-const auto kMpiGtestValues2Proc = ppc::util::ExpandToValues(kMpiTasksList2Proc);
-const auto kMpiGtestValues3Proc = ppc::util::ExpandToValues(kMpiTasksList3Proc);
-const auto kMpiGtestValues4Proc = ppc::util::ExpandToValues(kMpiTasksList4Proc);
+const auto kMpiGtestValues = ppc::util::ExpandToValues(kMpiTasksList);
 
 const auto kFuncTestName = IskhakovDLinearTopologyFuncTests::PrintFuncTestName<IskhakovDLinearTopologyFuncTests>;
 
 INSTANTIATE_TEST_SUITE_P(SeqTests, IskhakovDLinearTopologySeqTests, kSeqGtestValues, kFuncTestName);
-INSTANTIATE_TEST_SUITE_P(Mpi2ProcTests, IskhakovDLinearTopologyMpi2ProcTests, kMpiGtestValues2Proc, kFuncTestName);
-INSTANTIATE_TEST_SUITE_P(Mpi3ProcTests, IskhakovDLinearTopologyMpi3ProcTests, kMpiGtestValues3Proc, kFuncTestName);
-INSTANTIATE_TEST_SUITE_P(Mpi4ProcTests, IskhakovDLinearTopologyMpi4ProcTests, kMpiGtestValues4Proc, kFuncTestName);
+INSTANTIATE_TEST_SUITE_P(MpiTests, IskhakovDLinearTopologyMpiTests, kMpiGtestValues, kFuncTestName);
 
 }  // namespace
 
