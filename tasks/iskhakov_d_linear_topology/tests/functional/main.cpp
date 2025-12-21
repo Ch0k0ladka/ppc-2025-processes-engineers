@@ -212,7 +212,7 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   msg.head_process = head;
   msg.tail_process = tail;
   msg.delivered = delivered;
-  msg.data.clear(); 
+  msg.data.clear();
   if (data_size > 0) {
     msg.data.resize(data_size);
     for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
