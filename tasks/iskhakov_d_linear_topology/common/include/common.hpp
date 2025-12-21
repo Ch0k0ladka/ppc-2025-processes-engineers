@@ -8,10 +8,10 @@
 namespace iskhakov_d_linear_topology {
 
 struct Message {
-  int head_process;
-  int tail_process;
+  int head_process = 0;
+  int tail_process = 0;
   std::vector<int> data;
-  bool delivered;
+  bool delivered = false;
 };
 
 using InType = Message;
