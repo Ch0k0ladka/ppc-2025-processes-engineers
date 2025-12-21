@@ -134,7 +134,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     MPI_Isend(local_data.data(), local_data_size, MPI_INT, next_process, 1, MPI_COMM_WORLD, &requests[1]);
     MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
-    result.set_data(local_data);
+    result.set_data({});
     result.delivered = false;
   } else if (is_tail) {
     MPI_Recv(&local_data_size, 1, MPI_INT, previous_process, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

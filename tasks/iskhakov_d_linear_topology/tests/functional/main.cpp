@@ -171,8 +171,7 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
  protected:
   void SetUp() override {
     if (!ppc::util::IsUnderMpirun()) {
-      std::cerr << "MPI tests are not under mpirun\n";
-      GTEST_SKIP();
+      GTEST_SKIP() << "MPI tests are not under mpirun";
     }
 
     int proc_rank{};
@@ -192,15 +191,16 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       adapted = true;
     }
 
-    auto &expected_msg = expected_output_;
-    expected_msg.head_process = input_data_.head_process;
-    expected_msg.tail_process = input_data_.tail_process;
-    expected_msg.set_data(input_data_.data);
-    expected_msg.delivered = true;
+    if (proc_rank == 0) {
+      expected_output_.head_process = input_data_.head_process;
+      expected_output_.tail_process = input_data_.tail_process;
+      expected_output_.set_data(input_data_.data);
+      expected_output_.delivered = true;
 
-    if (adapted && proc_rank == 0) {
-      std::cout << "Adapted test: head_process=" << input_data_.head_process
-                << ", tail_process=" << input_data_.tail_process << " for " << proc_nums << " processes\n";
+      if (adapted) {
+        std::cout << "Adapted test: head_process=" << input_data_.head_process
+                  << ", tail_process=" << input_data_.tail_process << " for " << proc_nums << " processes\n";
+      }
     }
 
     int test_params[3] = {input_data_.head_process, input_data_.tail_process,
@@ -211,15 +211,19 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       input_data_.head_process = test_params[0];
       input_data_.tail_process = test_params[1];
 
-      if (test_params[2] > 0) {
-        if (proc_rank != input_data_.head_process) {
-          input_data_.set_data({});
-        }
-      }
+      input_data_.set_data({});
       input_data_.delivered = false;
     }
 
-    MPI_Bcast(&expected_output_, sizeof(Message), MPI_BYTE, 0, MPI_COMM_WORLD);
+    int data_size = test_params[2];
+    if (data_size > 0) {
+      if (proc_rank == 0) {
+        MPI_Bcast(input_data_.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
+      } else {
+        input_data_.data.resize(data_size);
+        MPI_Bcast(input_data_.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
+      }
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
@@ -229,14 +233,21 @@ class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests 
  protected:
   void SetUp() override {
     if (ppc::util::IsUnderMpirun()) {
-      std::cerr << "SEQ tests should not run under mpirun\n";
-      GTEST_SKIP();
+      GTEST_SKIP() << "SEQ tests skipped under mpirun";
     }
     IskhakovDLinearTopologyFuncTests::SetUp();
   }
 };
 
 namespace {
+
+TEST_P(IskhakovDLinearTopologySeqTests, SeqTests) {
+  ExecuteTest(GetParam());
+}
+
+TEST_P(IskhakovDLinearTopologyMpiTests, MpiTests) {
+  ExecuteTest(GetParam());
+}
 
 Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   Message msg;
