@@ -83,7 +83,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
       result.data = {};
       result.delivered = false;
     }
-    GetOutput() = std::make_pair(result, world_size);
+    GetOutput() = std::make_tuple(result, world_size);
     return true;
   }
 
@@ -105,7 +105,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
   if (!participate) {
     result.data = {};
     result.delivered = false;
-    GetOutput() = std::make_pair(result, world_size);
+    GetOutput() = std::make_tuple(result, world_size);
     return true;
   }
 
@@ -157,7 +157,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     result.delivered = false;
   }
 
-  GetOutput() = std::make_pair(result, world_size);
+  GetOutput() = std::make_tuple(result, world_size);
   return true;
 }
 
