@@ -179,13 +179,10 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
 
-    IskhakovDLinearTopologyFuncTests::SetUp();
+    test_params_ = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    input_data_ = std::get<0>(test_params_);
 
     expected_output_ = Message{};
-    expected_output_.head_process = -1;
-    expected_output_.tail_process = -1;
-    expected_output_.set_data({});
-    expected_output_.delivered = false;
 
     bool adapted = false;
     if (input_data_.head_process >= proc_nums) {
@@ -196,11 +193,6 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       input_data_.tail_process = proc_nums - 1;
       adapted = true;
     }
-
-    expected_output_.head_process = input_data_.head_process;
-    expected_output_.tail_process = input_data_.tail_process;
-    expected_output_.set_data(input_data_.data);
-    expected_output_.delivered = true;
 
     if (proc_rank == 0 && adapted) {
       std::cout << "Adapted test: head_process=" << input_data_.head_process
@@ -226,27 +218,6 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
         input_data_.data.resize(data_size);
         MPI_Bcast(input_data_.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
       }
-    }
-
-    int expected_params[4];
-    if (proc_rank == 0) {
-      expected_params[0] = expected_output_.head_process;
-      expected_params[1] = expected_output_.tail_process;
-      expected_params[2] = expected_output_.delivered ? 1 : 0;
-      expected_params[3] = static_cast<int>(expected_output_.data.size());
-    }
-
-    MPI_Bcast(expected_params, 4, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (proc_rank != 0) {
-      expected_output_.head_process = expected_params[0];
-      expected_output_.tail_process = expected_params[1];
-      expected_output_.delivered = (expected_params[2] != 0);
-      expected_output_.data.resize(expected_params[3]);
-    }
-
-    if (expected_params[3] > 0) {
-      MPI_Bcast(expected_output_.data.data(), expected_params[3], MPI_INT, 0, MPI_COMM_WORLD);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
