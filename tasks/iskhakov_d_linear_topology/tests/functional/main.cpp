@@ -37,6 +37,21 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
 
     input_data_ = std::get<0>(test_params_);
     expected_output_ = std::get<1>(test_params_);
+
+    if (input_data_.data_size > 0 && input_data_.data.empty()) {
+      input_data_.data.resize(input_data_.data_size);
+      for (int i = 0; i < input_data_.data_size; ++i) {
+        input_data_.data[i] = i + 1;
+      }
+    }
+
+    auto &expected_msg = std::get<0>(expected_output_);
+    if (expected_msg.data_size > 0 && expected_msg.data.empty()) {
+      expected_msg.data.resize(expected_msg.data_size);
+      for (int i = 0; i < expected_msg.data_size; ++i) {
+        expected_msg.data[i] = i + 1;
+      }
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
@@ -50,22 +65,30 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       int expected_processes = std::get<1>(expected_output_);
 
       if (actual_processes != expected_processes) {
+        std::cerr << "Process count mismatch: actual=" << actual_processes << ", expected=" << expected_processes
+                  << std::endl;
         return false;
       }
 
       if (!actual_result.delivered) {
+        std::cerr << "Message not delivered" << std::endl;
         return false;
       }
 
       if (actual_result.data != expected_result.data) {
+        std::cerr << "Data mismatch" << std::endl;
         return false;
       }
 
       if (actual_result.head_process != input_data_.head_process) {
+        std::cerr << "Head process mismatch: actual=" << actual_result.head_process
+                  << ", expected=" << input_data_.head_process << std::endl;
         return false;
       }
 
       if (actual_result.tail_process != input_data_.tail_process) {
+        std::cerr << "Tail process mismatch: actual=" << actual_result.tail_process
+                  << ", expected=" << input_data_.tail_process << std::endl;
         return false;
       }
 
@@ -76,22 +99,29 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
 
       if (actual_processes != proc_nums) {
+        std::cerr << "Process count mismatch: actual=" << actual_processes << ", expected=" << proc_nums << std::endl;
         return false;
       }
 
       if (actual_result.head_process != input_data_.head_process) {
+        std::cerr << "Head process mismatch: actual=" << actual_result.head_process
+                  << ", expected=" << input_data_.head_process << std::endl;
         return false;
       }
 
       if (actual_result.tail_process != input_data_.tail_process) {
+        std::cerr << "Tail process mismatch: actual=" << actual_result.tail_process
+                  << ", expected=" << input_data_.tail_process << std::endl;
         return false;
       }
 
       if (input_data_.head_process >= proc_nums) {
+        std::cerr << "Head process out of range: " << input_data_.head_process << " >= " << proc_nums << std::endl;
         return false;
       }
 
       if (input_data_.tail_process >= proc_nums) {
+        std::cerr << "Tail process out of range: " << input_data_.tail_process << " >= " << proc_nums << std::endl;
         return false;
       }
 
@@ -101,8 +131,25 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
                                   ? (proc_rank == input_data_.head_process)
                                   : is_target_process;
 
-      return should_have_data ? (actual_result.delivered && actual_result.data == input_data_.data)
-                              : (!actual_result.delivered && actual_result.data.empty());
+      if (should_have_data) {
+        if (!actual_result.delivered) {
+          std::cerr << "Process " << proc_rank << " should have data but not delivered" << std::endl;
+          return false;
+        }
+        if (actual_result.data != input_data_.data) {
+          std::cerr << "Process " << proc_rank << " data mismatch" << std::endl;
+          return false;
+        }
+      } else {
+        if (actual_result.delivered) {
+          std::cerr << "Process " << proc_rank << " should not have data but delivered" << std::endl;
+          return false;
+        }
+        if (!actual_result.data.empty()) {
+          std::cerr << "Process " << proc_rank << " should not have data but data is not empty" << std::endl;
+          return false;
+        }
+      }
     }
 
     return true;
@@ -163,6 +210,14 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     expected_msg.data_size = input_data_.data_size;
     expected_msg.delivered = true;
 
+    expected_msg.data.clear();
+    if (input_data_.data_size > 0) {
+      expected_msg.data.resize(input_data_.data_size);
+      for (int i = 0; i < input_data_.data_size; ++i) {
+        expected_msg.data[i] = i + 1;
+      }
+    }
+
     std::get<1>(expected_output_) = proc_nums;
 
     if (adapted && proc_rank == 0) {
@@ -205,14 +260,6 @@ class IskhakovDLinearTopologySeqTests : public IskhakovDLinearTopologyFuncTests 
 
 namespace {
 
-TEST_P(IskhakovDLinearTopologySeqTests, SeqTests) {
-  ExecuteTest(GetParam());
-}
-
-TEST_P(IskhakovDLinearTopologyMpiTests, MpiTests) {
-  ExecuteTest(GetParam());
-}
-
 Message CreateMessage(int head, int tail, int data_size, bool delivered) {
   Message msg;
   msg.head_process = head;
@@ -225,10 +272,11 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
 
   if (data_size > 0) {
     msg.data.resize(data_size);
-    for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
-      msg.data[vector_filling_step] = vector_filling_step + 1;
+    for (int i = 0; i < data_size; ++i) {
+      msg.data[i] = i + 1;
     }
   }
+
   return msg;
 }
 
@@ -265,6 +313,14 @@ const auto kSeqGtestValues = ppc::util::ExpandToValues(kSeqTasksList);
 const auto kMpiGtestValues = ppc::util::ExpandToValues(kMpiTasksList);
 
 const auto kFuncTestName = IskhakovDLinearTopologyFuncTests::PrintFuncTestName<IskhakovDLinearTopologyFuncTests>;
+
+TEST_P(IskhakovDLinearTopologySeqTests, SeqTests) {
+  ExecuteTest(GetParam());
+}
+
+TEST_P(IskhakovDLinearTopologyMpiTests, MpiTests) {
+  ExecuteTest(GetParam());
+}
 
 INSTANTIATE_TEST_SUITE_P(SeqTests, IskhakovDLinearTopologySeqTests, kSeqGtestValues, kFuncTestName);
 INSTANTIATE_TEST_SUITE_P(MpiTests, IskhakovDLinearTopologyMpiTests, kMpiGtestValues, kFuncTestName);
