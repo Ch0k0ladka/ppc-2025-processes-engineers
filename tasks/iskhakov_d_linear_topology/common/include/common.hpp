@@ -18,6 +18,10 @@ struct Message {
 struct Result {
   Message message;
   int process_count = 0;
+
+  Result() : message(), process_count(0) {}
+
+  Result(Message msg, int count) : message(std::move(msg)), process_count(count) {}
 };
 
 using InType = Message;
