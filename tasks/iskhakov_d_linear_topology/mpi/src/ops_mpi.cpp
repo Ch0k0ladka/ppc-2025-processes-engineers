@@ -41,7 +41,10 @@ bool IskhakovDLinearTopologyMPI::ValidationImpl() {
   int is_valid_local = 1;
 
   if (world_rank == input.head_process) {
-    if (input.data.empty() || input.delivered) {
+    if (input.data.empty()) {
+      is_valid_local = 0;
+    }
+    if (input.delivered) {
       is_valid_local = 0;
     }
   }

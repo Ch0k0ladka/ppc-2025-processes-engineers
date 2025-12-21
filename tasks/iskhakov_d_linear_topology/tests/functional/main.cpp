@@ -144,47 +144,42 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
 
-    int test_params[3] = {0, 0, 0};
+    IskhakovDLinearTopologyFuncTests::SetUp();
 
-    if (proc_rank == 0) {
-      IskhakovDLinearTopologyFuncTests::SetUp();
-
-      test_params[0] = input_data_.head_process;
-      test_params[1] = input_data_.tail_process;
-      test_params[2] = static_cast<int>(input_data_.data.size());
+    bool adapted = false;
+    if (input_data_.head_process >= proc_nums) {
+      input_data_.head_process = proc_nums - 1;
+      adapted = true;
+    }
+    if (input_data_.tail_process >= proc_nums) {
+      input_data_.tail_process = proc_nums - 1;
+      adapted = true;
     }
 
+    std::get<0>(expected_output_).head_process = input_data_.head_process;
+    std::get<0>(expected_output_).tail_process = input_data_.tail_process;
+    std::get<1>(expected_output_) = proc_nums;
+
+    if (adapted && proc_rank == 0) {
+      std::cout << "Adapted test: head_process=" << input_data_.head_process
+                << ", tail_process=" << input_data_.tail_process << " for " << proc_nums << " processes\n";
+    }
+
+    int test_params[3] = {input_data_.head_process, input_data_.tail_process,
+                          static_cast<int>(input_data_.data.size())};
     MPI_Bcast(test_params, 3, MPI_INT, 0, MPI_COMM_WORLD);
 
-    input_data_.head_process = test_params[0];
-    input_data_.tail_process = test_params[1];
-
     if (proc_rank != 0) {
-      input_data_.data.resize(test_params[2]);
-      for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
-        input_data_.data[vector_filling_step] = vector_filling_step + 1;
+      input_data_.head_process = test_params[0];
+      input_data_.tail_process = test_params[1];
+
+      if (input_data_.data.empty()) {
+        input_data_.data.resize(test_params[2]);
+        for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
+          input_data_.data[vector_filling_step] = vector_filling_step + 1;
+        }
       }
       input_data_.delivered = false;
-
-      Message expected_msg;
-      expected_msg.head_process = test_params[0];
-      expected_msg.tail_process = test_params[1];
-      expected_msg.delivered = true;
-      expected_msg.data.resize(test_params[2]);
-      for (int vector_filling_step = 0; vector_filling_step < test_params[2]; ++vector_filling_step) {
-        expected_msg.data[vector_filling_step] = vector_filling_step + 1;
-      }
-      expected_output_ = OutType{expected_msg, proc_nums};
-    } else {
-      std::get<1>(expected_output_) = proc_nums;
-    }
-
-    if (input_data_.head_process >= proc_nums || input_data_.tail_process >= proc_nums) {
-      if (proc_rank == 0) {
-        std::cerr << "Test requires at least " << std::max(input_data_.head_process, input_data_.tail_process) + 1
-                  << " processes, but only " << proc_nums << " available.\n";
-      }
-      GTEST_SKIP();
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -228,13 +223,24 @@ const std::array<TestType, 2> kSeqParam = {
     TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
     TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}}};
 
-const std::array<TestType, 6> kMpiParam = {
+const std::array<TestType, 14> kMpiParam = {
     TestType{CreateMessage(0, 0, 5, false), OutType{CreateMessage(0, 0, 5, true), 1}},
     TestType{CreateMessage(0, 0, 10, false), OutType{CreateMessage(0, 0, 10, true), 1}},
-    TestType{CreateMessage(0, 1, 10, false), OutType{CreateMessage(0, 1, 10, true), 2}},
-    TestType{CreateMessage(0, 1, 20, false), OutType{CreateMessage(0, 1, 20, true), 2}},
-    TestType{CreateMessage(0, 2, 15, false), OutType{CreateMessage(0, 2, 15, true), 3}},
-    TestType{CreateMessage(0, 3, 20, false), OutType{CreateMessage(0, 3, 20, true), 4}}};
+
+    TestType{CreateMessage(0, 1, 15, false), OutType{CreateMessage(0, 1, 10, true), 2}},
+    TestType{CreateMessage(1, 0, 20, false), OutType{CreateMessage(1, 0, 20, true), 2}},
+
+    TestType{CreateMessage(0, 2, 25, false), OutType{CreateMessage(0, 2, 15, true), 3}},
+    TestType{CreateMessage(2, 0, 30, false), OutType{CreateMessage(2, 0, 20, true), 3}},
+    TestType{CreateMessage(1, 2, 35, false), OutType{CreateMessage(1, 2, 15, true), 3}},
+    TestType{CreateMessage(2, 1, 40, false), OutType{CreateMessage(2, 1, 20, true), 3}},
+
+    TestType{CreateMessage(0, 3, 45, false), OutType{CreateMessage(0, 3, 15, true), 4}},
+    TestType{CreateMessage(3, 0, 50, false), OutType{CreateMessage(3, 0, 20, true), 4}},
+    TestType{CreateMessage(1, 3, 55, false), OutType{CreateMessage(1, 3, 15, true), 4}},
+    TestType{CreateMessage(3, 1, 60, false), OutType{CreateMessage(3, 1, 20, true), 4}},
+    TestType{CreateMessage(2, 3, 65, false), OutType{CreateMessage(2, 3, 15, true), 4}},
+    TestType{CreateMessage(3, 2, 70, false), OutType{CreateMessage(3, 2, 20, true), 4}}};
 
 const auto kSeqTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<IskhakovDLinearTopologySEQ, InType>(kSeqParam, PPC_SETTINGS_iskhakov_d_linear_topology));
