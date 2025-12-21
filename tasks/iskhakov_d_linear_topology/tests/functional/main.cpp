@@ -133,6 +133,12 @@ class IskhakovDLinearTopologyMpi2ProcTests : public IskhakovDLinearTopologyFuncT
  protected:
   void SetUp() override {
     IskhakovDLinearTopologyFuncTests::SetUp();
+
+    if (!ppc::util::IsUnderMpirun()) {
+      std::cerr << "MPI tests are not under mpirun\n";
+      GTEST_SKIP();
+    }
+
     if (!SetupMpiTest(input_data_, 2)) {
       GTEST_SKIP();
     }
@@ -143,6 +149,12 @@ class IskhakovDLinearTopologyMpi3ProcTests : public IskhakovDLinearTopologyFuncT
  protected:
   void SetUp() override {
     IskhakovDLinearTopologyFuncTests::SetUp();
+
+    if (!ppc::util::IsUnderMpirun()) {
+      std::cerr << "MPI tests are not under mpirun\n";
+      GTEST_SKIP();
+    }
+
     if (!SetupMpiTest(input_data_, 3)) {
       GTEST_SKIP();
     }
@@ -153,6 +165,12 @@ class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncT
  protected:
   void SetUp() override {
     IskhakovDLinearTopologyFuncTests::SetUp();
+
+    if (!ppc::util::IsUnderMpirun()) {
+      std::cerr << "MPI tests are not under mpirun\n";
+      GTEST_SKIP();
+    }
+
     if (!SetupMpiTest(input_data_, 4)) {
       GTEST_SKIP();
     }
@@ -160,11 +178,6 @@ class IskhakovDLinearTopologyMpi4ProcTests : public IskhakovDLinearTopologyFuncT
 };
 
 bool SetupMpiTest(InType &input_data, int expected_proc_count) {
-  if (!ppc::util::IsUnderMpirun()) {
-    std::cerr << "MPI tests are not under mpirun\n";
-    GTEST_SKIP();
-  }
-
   int proc_nums{};
   int proc_rank{};
   MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
@@ -197,7 +210,6 @@ bool SetupMpiTest(InType &input_data, int expected_proc_count) {
     adapted = true;
   }
 
-  // Вывод сообщения об адаптации на процессе 0
   if (adapted && proc_rank == 0) {
     std::cout << "Adapted test: head_process=" << input_data.head_process
               << ", tail_process=" << input_data.tail_process << " for " << proc_nums << " processes\n";
