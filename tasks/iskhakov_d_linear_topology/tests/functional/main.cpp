@@ -157,7 +157,7 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
       adapted = true;
     }
 
-    auto& expected_msg = std::get<0>(expected_output_);
+    auto &expected_msg = std::get<0>(expected_output_);
     expected_msg.head_process = input_data_.head_process;
     expected_msg.tail_process = input_data_.tail_process;
     expected_msg.data_size = input_data_.data_size;
@@ -222,7 +222,7 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
 
   msg.data.clear();
   msg.data.shrink_to_fit();
-  
+
   if (data_size > 0) {
     msg.data.resize(data_size);
     for (int vector_filling_step = 0; vector_filling_step < data_size; ++vector_filling_step) {
