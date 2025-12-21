@@ -40,16 +40,11 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    const auto &result = output_data.message;
-    int processes_number = output_data.process_count;
+    const auto &result = output_data;
 
     if (is_mpi_) {
       int world_size = 0;
       MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-      if (processes_number != world_size) {
-        return false;
-      }
 
       if (result.head_process != input_data_.head_process) {
         return false;
@@ -60,10 +55,6 @@ class IskhakovDLinearTopologyPerfTests : public ppc::util::BaseRunPerfTests<InTy
       }
 
     } else {
-      if (processes_number != 1) {
-        return false;
-      }
-
       if (result.head_process != input_data_.head_process) {
         return false;
       }

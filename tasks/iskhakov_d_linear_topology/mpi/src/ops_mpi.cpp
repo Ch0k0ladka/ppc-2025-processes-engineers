@@ -12,7 +12,7 @@ namespace iskhakov_d_linear_topology {
 IskhakovDLinearTopologyMPI::IskhakovDLinearTopologyMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = Result{};
+  GetOutput() = Message{};
 }
 
 bool IskhakovDLinearTopologyMPI::ValidationImpl() {
@@ -85,7 +85,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
       result.data_size = 0;
       result.delivered = false;
     }
-    GetOutput() = Result{result, world_size};
+    GetOutput() = result;
     return true;
   }
 
@@ -108,7 +108,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     result.data = {};
     result.data_size = 0;
     result.delivered = false;
-    GetOutput() = Result{result, world_size};
+    GetOutput() = result;
     return true;
   }
 
@@ -163,7 +163,7 @@ bool IskhakovDLinearTopologyMPI::RunImpl() {
     result.delivered = false;
   }
 
-  GetOutput() = Result{result, world_size};
+  GetOutput() = result;
   return true;
 }
 

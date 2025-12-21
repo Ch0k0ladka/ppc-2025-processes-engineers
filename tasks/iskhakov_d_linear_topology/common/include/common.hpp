@@ -15,17 +15,8 @@ struct Message {
   bool delivered = false;
 };
 
-struct Result {
-  Message message;
-  int process_count = 0;
-
-  Result() : message(), process_count(0) {}
-
-  Result(Message msg, int count) : message(std::move(msg)), process_count(count) {}
-};
-
 using InType = Message;
-using OutType = Result;
+using OutType = Message;
 using TestType = std::tuple<InType, OutType>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
