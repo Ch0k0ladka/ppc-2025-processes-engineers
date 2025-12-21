@@ -19,16 +19,17 @@ namespace iskhakov_d_linear_topology {
 class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    const auto &input = std::get<0>(test_param);
-    const auto &output = std::get<1>(test_param);
-    int process_count = std::get<1>(output);
+    const auto &[input, output] = test_param;
 
-    int local_head_process = input.head_process;
-    int local_tail_process = input.tail_process;
-    int local_data_size = input.data.size();
+    const auto &[output_message, process_count] = output;
 
-    return "head_" + std::to_string(local_head_process) + "_tail_" + std::to_string(local_tail_process) +
-           "_size_of_data_" + std::to_string(local_data_size) + "_processes_" + std::to_string(process_count);
+    int local_head_process = static_cast<int>(input.head_process);
+    int local_tail_process = static_cast<int>(input.tail_process);
+    int local_data_size = static_cast<int>(input.data.size());
+    int local_process_count = static_cast<int>(process_count);
+
+    return "head_" + std::to_string(local_head_process) + "_tail_" + std::to_string(local_tail_process) + "_data_" +
+           std::to_string(local_data_size) + "_processes_" + std::to_string(local_process_count);
   }
 
  protected:
