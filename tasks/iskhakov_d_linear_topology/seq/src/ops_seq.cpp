@@ -1,6 +1,5 @@
 #include "iskhakov_d_linear_topology/seq/include/ops_seq.hpp"
 
-#include <tuple>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
@@ -49,7 +48,7 @@ bool IskhakovDLinearTopologySEQ::RunImpl() {
   Message result;
   result.head_process = input.head_process;
   result.tail_process = input.tail_process;
-  result.set_data(input.data);
+  result.SetData(input.data);
   result.delivered = true;
 
   GetOutput() = result;

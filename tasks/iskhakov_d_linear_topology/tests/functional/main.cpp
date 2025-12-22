@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 
-#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <iostream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "iskhakov_d_linear_topology/common/include/common.hpp"
@@ -16,26 +17,26 @@
 
 namespace iskhakov_d_linear_topology {
 
-void PrintTo(const Message &msg, std::ostream *os);
+static void PrintTo(const Message &msg, std::ostream *os);
 
 class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     const auto &input = std::get<0>(test_param);
     return "head_" + std::to_string(input.head_process) + "_tail_" + std::to_string(input.tail_process) + "_data_" +
-           std::to_string(input.data.size());
+           std::to_string(input.DataSize());
   }
 
  protected:
-  TestType test_params_;
-  InType input_data_;
-  OutType expected_output_;
+  TestType test_params;
+  InType input_data;
+  OutType expected_output;
 
   void SetUp() override {
-    test_params_ = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    test_params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
 
-    input_data_ = std::get<0>(test_params_);
-    expected_output_ = std::get<1>(test_params_);
+    input_data = std::get<0>(test_params);
+    expected_output = std::get<1>(test_params);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
@@ -43,107 +44,107 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     bool is_under_mpirun = ppc::util::IsUnderMpirun();
 
     if (!is_under_mpirun) {
-      const auto &expected_result = expected_output_;
+      const auto &expected_result = expected_output;
 
-      if (actual_result.head_process != input_data_.head_process) {
-        std::cerr << "SEQ: head_process mismatch" << std::endl;
+      if (actual_result.head_process != input_data.head_process) {
+        std::cerr << "SEQ: head_process mismatch" << '\n';
         return false;
       }
 
-      if (actual_result.tail_process != input_data_.tail_process) {
-        std::cerr << "SEQ: tail_process mismatch" << std::endl;
+      if (actual_result.tail_process != input_data.tail_process) {
+        std::cerr << "SEQ: tail_process mismatch" << '\n';
         return false;
       }
 
       if (!actual_result.delivered) {
-        std::cerr << "SEQ: delivered should be true" << std::endl;
+        std::cerr << "SEQ: delivered should be true" << '\n';
         return false;
       }
 
       if (actual_result.data != expected_result.data) {
-        std::cerr << "SEQ: data mismatch" << std::endl;
+        std::cerr << "SEQ: data mismatch" << '\n';
         return false;
-      }
-
-      return true;
-    } else {
-      int proc_rank{};
-      int proc_nums{};
-      MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-      MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
-
-      if (actual_result.head_process != input_data_.head_process) {
-        std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << std::endl;
-        return false;
-      }
-
-      if (actual_result.tail_process != input_data_.tail_process) {
-        std::cerr << "MPI[" << proc_rank << "]: tail_process mismatch" << std::endl;
-        return false;
-      }
-
-      bool is_head = (proc_rank == input_data_.head_process);
-      bool is_tail = (proc_rank == input_data_.tail_process);
-      bool same_process = (input_data_.head_process == input_data_.tail_process);
-
-      if (same_process) {
-        if (is_head) {
-          if (!actual_result.delivered) {
-            std::cerr << "MPI[" << proc_rank << "]: same process should have delivered=true" << std::endl;
-            return false;
-          }
-        } else {
-          if (actual_result.delivered) {
-            std::cerr << "MPI[" << proc_rank << "]: non-participant should have delivered=false" << std::endl;
-            return false;
-          }
-        }
-      } else {
-        if (is_head) {
-          if (actual_result.delivered) {
-            std::cerr << "MPI[" << proc_rank << "]: head should have delivered=false" << std::endl;
-            return false;
-          }
-        } else if (is_tail) {
-          if (!actual_result.delivered) {
-            std::cerr << "MPI[" << proc_rank << "]: tail should have delivered=true" << std::endl;
-            return false;
-          }
-        } else {
-          if (actual_result.delivered) {
-            std::cerr << "MPI[" << proc_rank << "]: intermediate should have delivered=false" << std::endl;
-            return false;
-          }
-        }
-      }
-      if (same_process) {
-        if (is_head) {
-          if (actual_result.data != input_data_.data) {
-            std::cerr << "MPI[" << proc_rank << "]: same process data mismatch" << std::endl;
-            return false;
-          }
-        } else {
-          if (!actual_result.data.empty()) {
-            std::cerr << "MPI[" << proc_rank << "]: non-participant should have empty data" << std::endl;
-            return false;
-          }
-        }
-      } else {
-        if (is_tail) {
-          if (actual_result.data != input_data_.data) {
-            std::cerr << "MPI[" << proc_rank << "]: tail data mismatch" << std::endl;
-            return false;
-          }
-        } else {
-          if (!actual_result.data.empty()) {
-            std::cerr << "MPI[" << proc_rank << "]: non-tail should have empty data" << std::endl;
-            return false;
-          }
-        }
       }
 
       return true;
     }
+
+    int proc_rank{};
+    int proc_nums{};
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
+
+    if (actual_result.head_process != input_data.head_process) {
+      std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << '\n';
+      return false;
+    }
+
+    if (actual_result.tail_process != input_data.tail_process) {
+      std::cerr << "MPI[" << proc_rank << "]: tail_process mismatch" << '\n';
+      return false;
+    }
+
+    bool is_head = (proc_rank == input_data.head_process);
+    bool is_tail = (proc_rank == input_data.tail_process);
+    bool same_process = (input_data.head_process == input_data.tail_process);
+
+    if (same_process) {
+      if (is_head) {
+        if (!actual_result.delivered) {
+          std::cerr << "MPI[" << proc_rank << "]: same process should have delivered=true" << '\n';
+          return false;
+        }
+      } else {
+        if (actual_result.delivered) {
+          std::cerr << "MPI[" << proc_rank << "]: non-participant should have delivered=false" << '\n';
+          return false;
+        }
+      }
+    } else {
+      if (is_head) {
+        if (actual_result.delivered) {
+          std::cerr << "MPI[" << proc_rank << "]: head should have delivered=false" << '\n';
+          return false;
+        }
+      } else if (is_tail) {
+        if (!actual_result.delivered) {
+          std::cerr << "MPI[" << proc_rank << "]: tail should have delivered=true" << '\n';
+          return false;
+        }
+      } else {
+        if (actual_result.delivered) {
+          std::cerr << "MPI[" << proc_rank << "]: intermediate should have delivered=false" << '\n';
+          return false;
+        }
+      }
+    }
+    if (same_process) {
+      if (is_head) {
+        if (actual_result.data != input_data.data) {
+          std::cerr << "MPI[" << proc_rank << "]: same process data mismatch" << '\n';
+          return false;
+        }
+      } else {
+        if (!actual_result.data.empty()) {
+          std::cerr << "MPI[" << proc_rank << "]: non-participant should have empty data" << '\n';
+          return false;
+        }
+      }
+    } else {
+      if (is_tail) {
+        if (actual_result.data != input_data.data) {
+          std::cerr << "MPI[" << proc_rank << "]: tail data mismatch" << '\n';
+          return false;
+        }
+      } else {
+        if (!actual_result.data.empty()) {
+          std::cerr << "MPI[" << proc_rank << "]: non-tail should have empty data" << '\n';
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   InType GetTestInputData() final {
@@ -153,19 +154,18 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
       int proc_rank{};
       MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
-      if (proc_rank == input_data_.head_process) {
-        return input_data_;
-      } else {
-        Message empty_input;
-        empty_input.head_process = input_data_.head_process;
-        empty_input.tail_process = input_data_.tail_process;
-        empty_input.set_data({});
-        empty_input.delivered = false;
-        return empty_input;
+      if (proc_rank == input_data.head_process) {
+        return input_data;
       }
-    } else {
-      return input_data_;
+      Message empty_input;
+      empty_input.head_process = input_data.head_process;
+      empty_input.tail_process = input_data.tail_process;
+      empty_input.SetData({});
+      empty_input.delivered = false;
+      return empty_input;
     }
+
+    return input_data;
   }
 };
 
@@ -181,44 +181,44 @@ class IskhakovDLinearTopologyMpiTests : public IskhakovDLinearTopologyFuncTests 
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
 
-    test_params_ = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = std::get<0>(test_params_);
+    test_params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    input_data = std::get<0>(test_params);
 
-    expected_output_ = Message{};
+    expected_output = Message{};
 
     bool adapted = false;
-    if (input_data_.head_process >= proc_nums) {
-      input_data_.head_process = proc_nums - 1;
+    if (input_data.head_process >= proc_nums) {
+      input_data.head_process = proc_nums - 1;
       adapted = true;
     }
-    if (input_data_.tail_process >= proc_nums) {
-      input_data_.tail_process = proc_nums - 1;
+    if (input_data.tail_process >= proc_nums) {
+      input_data.tail_process = proc_nums - 1;
       adapted = true;
     }
 
     if (proc_rank == 0 && adapted) {
-      std::cout << "Adapted test: head_process=" << input_data_.head_process
-                << ", tail_process=" << input_data_.tail_process << " for " << proc_nums << " processes\n";
+      std::cout << "Adapted test: head_process=" << input_data.head_process
+                << ", tail_process=" << input_data.tail_process << " for " << proc_nums << " processes\n";
     }
 
-    int test_params[3] = {input_data_.head_process, input_data_.tail_process,
-                          static_cast<int>(input_data_.data.size())};
-    MPI_Bcast(test_params, 3, MPI_INT, 0, MPI_COMM_WORLD);
+    std::array<int, 3> test_params_array = {input_data.head_process, input_data.tail_process,
+                                            static_cast<int>(input_data.data.size())};
+    MPI_Bcast(test_params_array.data(), 3, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (proc_rank != 0) {
-      input_data_.head_process = test_params[0];
-      input_data_.tail_process = test_params[1];
-      input_data_.set_data({});
-      input_data_.delivered = false;
+      input_data.head_process = test_params_array[0];
+      input_data.tail_process = test_params_array[1];
+      input_data.SetData({});
+      input_data.delivered = false;
     }
 
-    int data_size = test_params[2];
+    int data_size = test_params_array[2];
     if (data_size > 0) {
       if (proc_rank == 0) {
-        MPI_Bcast(input_data_.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(input_data.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
       } else {
-        input_data_.data.resize(data_size);
-        MPI_Bcast(input_data_.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
+        input_data.data.resize(data_size);
+        MPI_Bcast(input_data.data.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
       }
     }
 
@@ -257,9 +257,9 @@ Message CreateMessage(int head, int tail, int data_size, bool delivered) {
     for (int i = 0; i < data_size; ++i) {
       data[i] = i + 1;
     }
-    msg.set_data(std::move(data));
+    msg.SetData(std::move(data));
   } else {
-    msg.set_data({});
+    msg.SetData({});
   }
 
   return msg;
@@ -302,9 +302,9 @@ INSTANTIATE_TEST_SUITE_P(MpiTests, IskhakovDLinearTopologyMpiTests, kMpiGtestVal
 
 }  // namespace
 
-void PrintTo(const Message &msg, std::ostream *os) {
+static void PrintTo(const Message &msg, std::ostream *os) {
   *os << "Message{head=" << msg.head_process << ", tail=" << msg.tail_process
-      << ", delivered=" << (msg.delivered ? "true" : "false") << ", data_size=" << msg.data.size() << "}";
+      << ", delivered=" << (msg.delivered ? "true" : "false") << ", data_size=" << msg.DataSize() << "}";
 }
 
 }  // namespace iskhakov_d_linear_topology

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -13,15 +13,15 @@ struct Message {
   bool delivered = false;
   std::vector<int> data;
 
-  int data_size() const {
+  [[nodiscard]] int DataSize() const {
     return static_cast<int>(data.size());
   }
 
-  void set_data(const std::vector<int> &new_data) {
+  void SetData(const std::vector<int> &new_data) {
     data = new_data;
   }
 
-  void set_data(std::vector<int> &&new_data) {
+  void SetData(std::vector<int> &&new_data) {
     data = std::move(new_data);
   }
 };
