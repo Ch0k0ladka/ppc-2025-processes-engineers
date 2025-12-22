@@ -16,6 +16,8 @@
 
 namespace iskhakov_d_linear_topology {
 
+void PrintTo(const Message &msg, std::ostream *os);
+
 class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
@@ -299,5 +301,10 @@ INSTANTIATE_TEST_SUITE_P(SeqTests, IskhakovDLinearTopologySeqTests, kSeqGtestVal
 INSTANTIATE_TEST_SUITE_P(MpiTests, IskhakovDLinearTopologyMpiTests, kMpiGtestValues, kFuncTestName);
 
 }  // namespace
+
+void PrintTo(const Message &msg, std::ostream *os) {
+  *os << "Message{head=" << msg.head_process << ", tail=" << msg.tail_process
+      << ", delivered=" << (msg.delivered ? "true" : "false") << ", data_size=" << msg.data.size() << "}";
+}
 
 }  // namespace iskhakov_d_linear_topology
