@@ -40,7 +40,7 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
   }
 
  private:
-  bool CheckSequential(const OutType &actual_result) const {
+  [[nodiscard]] bool CheckSequential(const OutType &actual_result) const {
     const auto &expected_result = expected_output;
 
     if (actual_result.head_process != input_data.head_process) {
@@ -66,8 +66,8 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     return true;
   }
 
-  bool CheckMPIDelivered(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail,
-                         bool same_process) const {
+  [[nodiscard]] static bool CheckMPIDelivered(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail,
+                                              bool same_process) {
     if (same_process) {
       if (is_head) {
         if (!actual_result.delivered) {
@@ -101,7 +101,8 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     return true;
   }
 
-  bool CheckMPIData(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail, bool same_process) const {
+  [[nodiscard]] bool CheckMPIData(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail,
+                                  bool same_process) const {
     if (same_process) {
       if (is_head) {
         if (actual_result.data != input_data.data) {
@@ -130,7 +131,7 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     return true;
   }
 
-  bool CheckMPI(const OutType &actual_result, int proc_rank) const {
+  [[nodiscard]] bool CheckMPI(const OutType &actual_result, int proc_rank) const {
     if (actual_result.head_process != input_data.head_process) {
       std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << '\n';
       return false;
