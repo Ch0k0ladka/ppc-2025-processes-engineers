@@ -39,55 +39,35 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
     expected_output = std::get<1>(test_params);
   }
 
-  bool CheckTestOutputData(OutType &output_data) final {
-    const auto &actual_result = output_data;
-    bool is_under_mpirun = ppc::util::IsUnderMpirun();
-
-    if (!is_under_mpirun) {
-      const auto &expected_result = expected_output;
-
-      if (actual_result.head_process != input_data.head_process) {
-        std::cerr << "SEQ: head_process mismatch" << '\n';
-        return false;
-      }
-
-      if (actual_result.tail_process != input_data.tail_process) {
-        std::cerr << "SEQ: tail_process mismatch" << '\n';
-        return false;
-      }
-
-      if (!actual_result.delivered) {
-        std::cerr << "SEQ: delivered should be true" << '\n';
-        return false;
-      }
-
-      if (actual_result.data != expected_result.data) {
-        std::cerr << "SEQ: data mismatch" << '\n';
-        return false;
-      }
-
-      return true;
-    }
-
-    int proc_rank{};
-    int proc_nums{};
-    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
+ private:
+  bool CheckSequential(const OutType &actual_result) const {
+    const auto &expected_result = expected_output;
 
     if (actual_result.head_process != input_data.head_process) {
-      std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << '\n';
+      std::cerr << "SEQ: head_process mismatch" << '\n';
       return false;
     }
 
     if (actual_result.tail_process != input_data.tail_process) {
-      std::cerr << "MPI[" << proc_rank << "]: tail_process mismatch" << '\n';
+      std::cerr << "SEQ: tail_process mismatch" << '\n';
       return false;
     }
 
-    bool is_head = (proc_rank == input_data.head_process);
-    bool is_tail = (proc_rank == input_data.tail_process);
-    bool same_process = (input_data.head_process == input_data.tail_process);
+    if (!actual_result.delivered) {
+      std::cerr << "SEQ: delivered should be true" << '\n';
+      return false;
+    }
 
+    if (actual_result.data != expected_result.data) {
+      std::cerr << "SEQ: data mismatch" << '\n';
+      return false;
+    }
+
+    return true;
+  }
+
+  bool CheckMPIDelivered(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail,
+                         bool same_process) const {
     if (same_process) {
       if (is_head) {
         if (!actual_result.delivered) {
@@ -118,6 +98,10 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
         }
       }
     }
+    return true;
+  }
+
+  bool CheckMPIData(const OutType &actual_result, int proc_rank, bool is_head, bool is_tail, bool same_process) const {
     if (same_process) {
       if (is_head) {
         if (actual_result.data != input_data.data) {
@@ -143,8 +127,50 @@ class IskhakovDLinearTopologyFuncTests : public ppc::util::BaseRunFuncTests<InTy
         }
       }
     }
+    return true;
+  }
+
+  bool CheckMPI(const OutType &actual_result, int proc_rank) const {
+    if (actual_result.head_process != input_data.head_process) {
+      std::cerr << "MPI[" << proc_rank << "]: head_process mismatch" << '\n';
+      return false;
+    }
+
+    if (actual_result.tail_process != input_data.tail_process) {
+      std::cerr << "MPI[" << proc_rank << "]: tail_process mismatch" << '\n';
+      return false;
+    }
+
+    bool is_head = (proc_rank == input_data.head_process);
+    bool is_tail = (proc_rank == input_data.tail_process);
+    bool same_process = (input_data.head_process == input_data.tail_process);
+
+    if (!CheckMPIDelivered(actual_result, proc_rank, is_head, is_tail, same_process)) {
+      return false;
+    }
+
+    if (!CheckMPIData(actual_result, proc_rank, is_head, is_tail, same_process)) {
+      return false;
+    }
 
     return true;
+  }
+
+ public:
+  bool CheckTestOutputData(OutType &output_data) final {
+    const auto &actual_result = output_data;
+    bool is_under_mpirun = ppc::util::IsUnderMpirun();
+
+    if (!is_under_mpirun) {
+      return CheckSequential(actual_result);
+    }
+
+    int proc_rank{};
+    int proc_nums{};
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_nums);
+
+    return CheckMPI(actual_result, proc_rank);
   }
 
   InType GetTestInputData() final {
