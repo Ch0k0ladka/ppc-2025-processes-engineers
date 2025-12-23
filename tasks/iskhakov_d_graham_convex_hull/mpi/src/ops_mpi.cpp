@@ -33,6 +33,10 @@ bool IskhakovDGrahamConvexHullMPI::PreProcessingImpl() {
 }
 
 std::vector<Point> IskhakovDGrahamConvexHullMPI::GrahamScan(const std::vector<Point> &input_points) {
+  if (input_points.size() < 3) {
+    return input_points;
+  }
+
   std::vector<Point> points = input_points;
 
   size_t index_min_point = 0;
