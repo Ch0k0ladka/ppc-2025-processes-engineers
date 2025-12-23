@@ -14,7 +14,7 @@ constexpr double kEpsilon = 1e-9;
 
 }  // namespace
 
-IskhakovDGrahamConvexHullSEQ::IskhakovDGrahamConvexHullSEQ(const InType& in) {
+IskhakovDGrahamConvexHullSEQ::IskhakovDGrahamConvexHullSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = OutType{};
@@ -29,7 +29,7 @@ bool IskhakovDGrahamConvexHullSEQ::PreProcessingImpl() {
 }
 
 bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
-  const std::vector<Point>& input_points = GetInput();
+  const std::vector<Point> &input_points = GetInput();
 
   if (input_points.size() < 3) {
     GetOutput() = input_points;
@@ -41,8 +41,7 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   std::size_t min_index = 0;
   for (std::size_t i = 1; i < points.size(); ++i) {
     if (points[i].y < points[min_index].y ||
-        (std::abs(points[i].y - points[min_index].y) < kEpsilon &&
-         points[i].x < points[min_index].x)) {
+        (std::abs(points[i].y - points[min_index].y) < kEpsilon && points[i].x < points[min_index].x)) {
       min_index = i;
     }
   }
@@ -50,35 +49,26 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   std::swap(points[0], points[min_index]);
   const Point pivot = points[0];
 
-  const auto orientation = [](const Point& p,
-                              const Point& q,
-                              const Point& r) -> double {
-    return (q.x - p.x) * (r.y - p.y) -
-           (q.y - p.y) * (r.x - p.x);
+  const auto orientation = [](const Point &p, const Point &q, const Point &r) -> double {
+    return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
   };
 
-  std::sort(points.begin() + 1, points.end(),
-            [&pivot, &orientation](const Point& a, const Point& b) {
-              const double orient = orientation(pivot, a, b);
-              if (std::abs(orient) < kEpsilon) {
-                const double dist_a =
-                    (a.x - pivot.x) * (a.x - pivot.x) +
-                    (a.y - pivot.y) * (a.y - pivot.y);
-                const double dist_b =
-                    (b.x - pivot.x) * (b.x - pivot.x) +
-                    (b.y - pivot.y) * (b.y - pivot.y);
-                return dist_a < dist_b;
-              }
-              return orient > 0.0;
-            });
+  std::sort(points.begin() + 1, points.end(), [&pivot, &orientation](const Point &a, const Point &b) {
+    const double orient = orientation(pivot, a, b);
+    if (std::abs(orient) < kEpsilon) {
+      const double dist_a = (a.x - pivot.x) * (a.x - pivot.x) + (a.y - pivot.y) * (a.y - pivot.y);
+      const double dist_b = (b.x - pivot.x) * (b.x - pivot.x) + (b.y - pivot.y) * (b.y - pivot.y);
+      return dist_a < dist_b;
+    }
+    return orient > 0.0;
+  });
 
   std::vector<Point> filtered;
   filtered.reserve(points.size());
   filtered.push_back(points[0]);
 
   for (std::size_t i = 1; i < points.size(); ++i) {
-    while (i + 1 < points.size() &&
-           std::abs(orientation(pivot, points[i], points[i + 1])) < kEpsilon) {
+    while (i + 1 < points.size() && std::abs(orientation(pivot, points[i], points[i + 1])) < kEpsilon) {
       ++i;
     }
     filtered.push_back(points[i]);
@@ -97,8 +87,7 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   for (std::size_t i = 2; i < filtered.size(); ++i) {
     while (hull.size() >= 2) {
       const std::size_t last = hull.size() - 1;
-      const double orient =
-          orientation(hull[last - 1], hull[last], filtered[i]);
+      const double orient = orientation(hull[last - 1], hull[last], filtered[i]);
 
       if (orient > kEpsilon) {
         break;
