@@ -19,7 +19,6 @@ constexpr std::size_t kPointCount = 1000000;
 constexpr int kCoordinateMin = 0;
 constexpr int kCoordinateMax = 10000;
 constexpr int kMaxGenerationAttempts = 100;
-constexpr int kCoordinateRange = kCoordinateMax - kCoordinateMin + 1;
 
 struct PairHash {
   std::size_t operator()(const std::pair<int, int> &p) const noexcept {
