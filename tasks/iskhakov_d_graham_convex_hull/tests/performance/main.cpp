@@ -1,5 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <random>
+#include <tuple>
+#include <unordered_set>
+#include <vector>
+
 #include "iskhakov_d_graham_convex_hull/common/include/common.hpp"
 #include "iskhakov_d_graham_convex_hull/mpi/include/ops_mpi.hpp"
 #include "iskhakov_d_graham_convex_hull/seq/include/ops_seq.hpp"
@@ -7,21 +14,85 @@
 
 namespace iskhakov_d_graham_convex_hull {
 
-class IskhakovDRunGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kCount_ = 100;
-  InType input_data_{};
+namespace {
+constexpr std::size_t kPointCount = 1000000;
+constexpr int kCoordinateMin = 0;
+constexpr int kCoordinateMax = 10000;
+constexpr int kMaxGenerationAttempts = 100;
+constexpr int kCoordinateRange = kCoordinateMax - kCoordinateMin + 1;
 
+struct PairHash {
+  std::size_t operator()(const std::pair<int, int> &p) const noexcept {
+    return static_cast<std::size_t>(p.first) ^ (static_cast<std::size_t>(p.second) << 16);
+  }
+};
+}  // namespace
+
+class IskhakovDRunGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
+ protected:
   void SetUp() override {
-    input_data_ = kCount_;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(kCoordinateMin, kCoordinateMax);
+
+    std::vector<Point> points;
+    points.reserve(kPointCount);
+
+    std::unordered_set<std::pair<int, int>, PairHash> unique_points;
+    unique_points.reserve(kPointCount);
+
+    for (std::size_t i = 0; i < kPointCount; ++i) {
+      int attempts = 0;
+      bool point_added = false;
+
+      while (attempts < kMaxGenerationAttempts && !point_added) {
+        int x = dist(gen);
+        int y = dist(gen);
+
+        auto [iter, inserted] = unique_points.emplace(x, y);
+        if (inserted) {
+          points.emplace_back(static_cast<double>(x), static_cast<double>(y));
+          point_added = true;
+        }
+        ++attempts;
+      }
+
+      if (!point_added) {
+        int x = dist(gen);
+        int y = dist(gen);
+        points.emplace_back(static_cast<double>(x), static_cast<double>(y));
+      }
+    }
+
+    input_data_ = std::move(points);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return input_data_ == output_data;
+    if (output_data.empty()) {
+      return false;
+    }
+
+    if (output_data.size() > kPointCount) {
+      return false;
+    }
+
+    constexpr double kEpsilon = 1e-6;
+    for (const auto &point : output_data) {
+      if (point.x < kCoordinateMin - kEpsilon || point.x > kCoordinateMax + kEpsilon ||
+          point.y < kCoordinateMin - kEpsilon || point.y > kCoordinateMax + kEpsilon) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   InType GetTestInputData() final {
     return input_data_;
   }
+
+ private:
+  InType input_data_;
 };
 
 TEST_P(IskhakovDRunGrahamConvexHullPerfTests, RunPerfModes) {
@@ -38,4 +109,6 @@ const auto kPerfTestName = IskhakovDRunGrahamConvexHullPerfTests::CustomPerfTest
 
 INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDRunGrahamConvexHullPerfTests, kGtestValues, kPerfTestName);
 
-}  // namespace  iskhakov_d_graham_convex_hull
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDRunGrahamConvexHullPerfTests);
+
+}  // namespace iskhakov_d_graham_convex_hull
