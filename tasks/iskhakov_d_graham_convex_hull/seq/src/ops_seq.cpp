@@ -20,7 +20,8 @@ IskhakovDGrahamConvexHullSEQ::IskhakovDGrahamConvexHullSEQ(const InType &in) {
 }
 
 bool IskhakovDGrahamConvexHullSEQ::ValidationImpl() {
-  return GetInput().size() >= 3;
+  const size_t input_size = GetInput().size();
+  return input_size >= 3;
 }
 
 bool IskhakovDGrahamConvexHullSEQ::PreProcessingImpl() {
@@ -28,14 +29,16 @@ bool IskhakovDGrahamConvexHullSEQ::PreProcessingImpl() {
 }
 
 bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
-  std::vector<Point> points = GetInput();
-  if (points.size() < 3) {
-    GetOutput() = points;
+  const std::vector<Point> input_points = GetInput();
+  if (input_points.size() < 3) {
+    GetOutput() = input_points;
     return true;
   }
 
+  std::vector<Point> points = input_points;
   size_t index_min_point = 0;
-  for (size_t index_vector = 1; index_vector < points.size(); index_vector++) {
+
+  for (size_t index_vector = 1; index_vector < points.size(); ++index_vector) {
     if (points[index_vector].y < points[index_min_point].y - kEpsilon ||
         (std::abs(points[index_vector].y - points[index_min_point].y) < kEpsilon &&
          points[index_vector].x < points[index_min_point].x - kEpsilon)) {
@@ -46,17 +49,17 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   std::swap(points[0], points[index_min_point]);
   const Point &start_point = points[0];
 
-  auto orientation = [](const Point &pivot, const Point &p1, const Point &p2) {
+  const auto orientation = [](const Point &pivot, const Point &p1, const Point &p2) {
     return (p1.x - pivot.x) * (p2.y - pivot.y) - (p1.y - pivot.y) * (p2.x - pivot.x);
   };
 
   std::sort(points.begin() + 1, points.end(), [&start_point, &orientation](const Point &point1, const Point &point2) {
-    double orient = orientation(start_point, point1, point2);
+    const double orient = orientation(start_point, point1, point2);
     if (std::abs(orient) < kEpsilon) {
-      double dist1 = (point1.x - start_point.x) * (point1.x - start_point.x) +
-                     (point1.y - start_point.y) * (point1.y - start_point.y);
-      double dist2 = (point2.x - start_point.x) * (point2.x - start_point.x) +
-                     (point2.y - start_point.y) * (point2.y - start_point.y);
+      const double dist1 = (point1.x - start_point.x) * (point1.x - start_point.x) +
+                           (point1.y - start_point.y) * (point1.y - start_point.y);
+      const double dist2 = (point2.x - start_point.x) * (point2.x - start_point.x) +
+                           (point2.y - start_point.y) * (point2.y - start_point.y);
       return dist1 < dist2;
     }
     return orient > 0;
@@ -64,11 +67,12 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
 
   if (points.size() > 2) {
     std::vector<Point> filtered_points;
+    filtered_points.reserve(points.size());
     filtered_points.push_back(points[0]);
 
-    for (size_t i = 1; i < points.size(); i++) {
+    for (size_t i = 1; i < points.size(); ++i) {
       while (i + 1 < points.size() && std::abs(orientation(start_point, points[i], points[i + 1])) < kEpsilon) {
-        i++;
+        ++i;
       }
       filtered_points.push_back(points[i]);
     }
@@ -85,17 +89,17 @@ bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   hull.push_back(points[0]);
   hull.push_back(points[1]);
 
-  for (size_t index_vector = 2; index_vector < points.size(); index_vector++) {
+  for (size_t index_vector = 2; index_vector < points.size(); ++index_vector) {
     while (hull.size() >= 2) {
-      double orient = orientation(hull[hull.size() - 2], hull.back(), points[index_vector]);
+      const double orient = orientation(hull[hull.size() - 2], hull.back(), points[index_vector]);
       if (orient > kEpsilon) {
         break;
       } else if (orient < -kEpsilon) {
         hull.pop_back();
       } else {
-        double dist_last = (hull.back().x - hull[hull.size() - 2].x) * (hull.back().x - hull[hull.size() - 2].x) +
-                           (hull.back().y - hull[hull.size() - 2].y) * (hull.back().y - hull[hull.size() - 2].y);
-        double dist_current =
+        const double dist_last = (hull.back().x - hull[hull.size() - 2].x) * (hull.back().x - hull[hull.size() - 2].x) +
+                                 (hull.back().y - hull[hull.size() - 2].y) * (hull.back().y - hull[hull.size() - 2].y);
+        const double dist_current =
             (points[index_vector].x - hull[hull.size() - 2].x) * (points[index_vector].x - hull[hull.size() - 2].x) +
             (points[index_vector].y - hull[hull.size() - 2].y) * (points[index_vector].y - hull[hull.size() - 2].y);
         if (dist_current > dist_last) {

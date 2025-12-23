@@ -3,9 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
-#include <numeric>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -24,13 +21,13 @@ class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<In
   static std::string PrintTestParam(const TestType &test_param) {
     (void)test_param;
     static int test_counter = 0;
-    test_counter++;
+    ++test_counter;
     return "Test_" + std::to_string(test_counter);
   }
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    const TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const auto &[input, expected_result] = params;
 
     input_data_ = input;
@@ -75,7 +72,7 @@ TestType CreateTestData(const std::vector<Point> &input, const std::vector<Point
 
 }  // namespace
 
-const std::array<TestType, 11> kTestParam = {
+const std::array<TestType, 16> kTestParam = {
     CreateTestData(std::vector<Point>{{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}},
                    std::vector<Point>{{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}}),
 
@@ -135,7 +132,23 @@ const std::array<TestType, 11> kTestParam = {
                                       {-2.5, -2.5},
                                       {-4.0, 0.0},
                                       {-2.5, 2.5},
-                                      {-1.2, 1.2}})};
+                                      {-1.2, 1.2}}),
+
+    CreateTestData(std::vector<Point>{{5.0, 5.0}, {10.0, 10.0}, {0.0, 10.0}, {5.0, 15.0}},
+                   std::vector<Point>{{5.0, 5.0}, {10.0, 10.0}, {5.0, 15.0}, {0.0, 10.0}}),
+
+    CreateTestData(std::vector<Point>{{0.0, 0.0}, {3.0, 0.0}, {3.0, 3.0}, {0.0, 3.0}, {1.0, 1.0}, {2.0, 2.0}},
+                   std::vector<Point>{{0.0, 0.0}, {3.0, 0.0}, {3.0, 3.0}, {0.0, 3.0}}),
+
+    CreateTestData(
+        std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}, {2.0, 2.0}, {1.0, 3.0}, {3.0, 1.0}},
+        std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}}),
+
+    CreateTestData(std::vector<Point>{{0.0, 0.0}, {2.0, 0.0}, {4.0, 0.0}, {2.0, 2.0}, {4.0, 4.0}, {0.0, 4.0}},
+                   std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}}),
+
+    CreateTestData(std::vector<Point>{{1.0, 1.0}, {2.0, 2.0}, {3.0, 3.0}, {4.0, 4.0}, {5.0, 5.0}},
+                   std::vector<Point>{{1.0, 1.0}, {5.0, 5.0}})};
 
 const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDGrahamConvexHullMPI, InType>(
                                                kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull),
