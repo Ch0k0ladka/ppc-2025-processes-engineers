@@ -208,98 +208,91 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BuildLocalHull([[maybe_unuse
 
 std::vector<Point> IskhakovDRunGrahamConvexHullMPI::MergeHullsBinaryTree(int world_rank, int world_size,
                                                                          const std::vector<Point> &local_hull) {
-    std::vector<Point> current_hull = local_hull;
-    
-    int active_procs = 1;
-    while (active_procs * 2 <= world_size) {
-        active_procs *= 2;
+  std::vector<Point> current_hull = local_hull;
+
+  int active_procs = 1;
+  while (active_procs * 2 <= world_size) {
+    active_procs *= 2;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  for (int step = 1; step < active_procs; step *= 2) {
+    int partner = world_rank ^ step;
+
+    if (partner >= world_size) {
+      continue;
     }
-    
+
+    int my_hull_size = static_cast<int>(current_hull.size());
+    int partner_hull_size = 0;
+
+    MPI_Status status;
+    MPI_Sendrecv(&my_hull_size, 1, MPI_INT, partner, 0, &partner_hull_size, 1, MPI_INT, partner, 0, MPI_COMM_WORLD,
+                 &status);
+
     MPI_Barrier(MPI_COMM_WORLD);
-    
-    for (int step = 1; step < active_procs; step *= 2) {
-        int partner = world_rank ^ step;
-        
-        if (partner >= world_size) {
-            continue;
-        }
-        
-        int my_hull_size = static_cast<int>(current_hull.size());
-        int partner_hull_size = 0;
-        
-        MPI_Status status;
-        MPI_Sendrecv(&my_hull_size, 1, MPI_INT, partner, 0, 
-                     &partner_hull_size, 1, MPI_INT, partner, 0, 
-                     MPI_COMM_WORLD, &status);
-        
-        MPI_Barrier(MPI_COMM_WORLD);
-        
-        if (partner_hull_size > 0 && my_hull_size == 0) {
-            std::vector<double> remote_x(partner_hull_size);
-            std::vector<double> remote_y(partner_hull_size);
-            
-            MPI_Recv(remote_x.data(), partner_hull_size, MPI_DOUBLE, 
-                     partner, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(remote_y.data(), partner_hull_size, MPI_DOUBLE, 
-                     partner, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            
-            std::vector<Point> remote_hull;
-            remote_hull.reserve(partner_hull_size);
-            for (int i = 0; i < partner_hull_size; i++) {
-                remote_hull.emplace_back(remote_x[i], remote_y[i]);
-            }
-            current_hull = remote_hull;
-            
-        } else if (my_hull_size > 0 && partner_hull_size == 0) {
-            std::vector<double> hull_x(my_hull_size);
-            std::vector<double> hull_y(my_hull_size);
-            for (int i = 0; i < my_hull_size; i++) {
-                hull_x[i] = current_hull[i].x;
-                hull_y[i] = current_hull[i].y;
-            }
-            
-            MPI_Send(hull_x.data(), my_hull_size, MPI_DOUBLE, 
-                     partner, 1, MPI_COMM_WORLD);
-            MPI_Send(hull_y.data(), my_hull_size, MPI_DOUBLE, 
-                     partner, 2, MPI_COMM_WORLD);
-            
-        } else if (my_hull_size > 0 && partner_hull_size > 0) {
-            std::vector<double> hull_x(my_hull_size);
-            std::vector<double> hull_y(my_hull_size);
-            for (int i = 0; i < my_hull_size; i++) {
-                hull_x[i] = current_hull[i].x;
-                hull_y[i] = current_hull[i].y;
-            }
-            
-            std::vector<double> remote_x(partner_hull_size);
-            std::vector<double> remote_y(partner_hull_size);
 
-            MPI_Sendrecv(hull_x.data(), my_hull_size, MPI_DOUBLE, partner, 1,
-                         remote_x.data(), partner_hull_size, MPI_DOUBLE, partner, 1,
-                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Sendrecv(hull_y.data(), my_hull_size, MPI_DOUBLE, partner, 2,
-                         remote_y.data(), partner_hull_size, MPI_DOUBLE, partner, 2,
-                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            
-            std::vector<Point> remote_hull;
-            remote_hull.reserve(partner_hull_size);
-            for (int i = 0; i < partner_hull_size; i++) {
-                remote_hull.emplace_back(remote_x[i], remote_y[i]);
-            }
-            
-            current_hull = MergeHulls(current_hull, remote_hull);
-        }
+    if (partner_hull_size > 0 && my_hull_size == 0) {
+      std::vector<double> remote_x(partner_hull_size);
+      std::vector<double> remote_y(partner_hull_size);
 
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
+      MPI_Recv(remote_x.data(), partner_hull_size, MPI_DOUBLE, partner, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(remote_y.data(), partner_hull_size, MPI_DOUBLE, partner, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    if (world_rank >= active_procs) {
-        current_hull.clear();
+      std::vector<Point> remote_hull;
+      remote_hull.reserve(partner_hull_size);
+      for (int i = 0; i < partner_hull_size; i++) {
+        remote_hull.emplace_back(remote_x[i], remote_y[i]);
+      }
+      current_hull = remote_hull;
+
+    } else if (my_hull_size > 0 && partner_hull_size == 0) {
+      std::vector<double> hull_x(my_hull_size);
+      std::vector<double> hull_y(my_hull_size);
+      for (int i = 0; i < my_hull_size; i++) {
+        hull_x[i] = current_hull[i].x;
+        hull_y[i] = current_hull[i].y;
+      }
+
+      MPI_Send(hull_x.data(), my_hull_size, MPI_DOUBLE, partner, 1, MPI_COMM_WORLD);
+      MPI_Send(hull_y.data(), my_hull_size, MPI_DOUBLE, partner, 2, MPI_COMM_WORLD);
+
+    } else if (my_hull_size > 0 && partner_hull_size > 0) {
+      std::vector<double> hull_x(my_hull_size);
+      std::vector<double> hull_y(my_hull_size);
+      for (int i = 0; i < my_hull_size; i++) {
+        hull_x[i] = current_hull[i].x;
+        hull_y[i] = current_hull[i].y;
+      }
+
+      std::vector<double> remote_x(partner_hull_size);
+      std::vector<double> remote_y(partner_hull_size);
+
+      MPI_Sendrecv(hull_x.data(), my_hull_size, MPI_DOUBLE, partner, 1, remote_x.data(), partner_hull_size, MPI_DOUBLE,
+                   partner, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Sendrecv(hull_y.data(), my_hull_size, MPI_DOUBLE, partner, 2, remote_y.data(), partner_hull_size, MPI_DOUBLE,
+                   partner, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+      std::vector<Point> remote_hull;
+      remote_hull.reserve(partner_hull_size);
+      for (int i = 0; i < partner_hull_size; i++) {
+        remote_hull.emplace_back(remote_x[i], remote_y[i]);
+      }
+
+      current_hull = MergeHulls(current_hull, remote_hull);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    
-    return current_hull;
+  }
+
+  if (world_rank >= active_procs) {
+    current_hull.clear();
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  return current_hull;
 }
 
 std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BroadcastFinalResult(int world_rank,
