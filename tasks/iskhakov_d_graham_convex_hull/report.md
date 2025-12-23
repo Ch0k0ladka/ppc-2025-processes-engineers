@@ -27,7 +27,7 @@
 ## 3. Базовый алгоритм (Последовательный)
 
 ```cpp
-bool IskhakovDRunGrahamConvexHullSEQ::RunImpl() {
+bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   std::vector<Point> points = GetInput();
   
   size_t index_min_point = 0;

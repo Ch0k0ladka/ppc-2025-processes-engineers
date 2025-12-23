@@ -5,12 +5,12 @@
 
 namespace iskhakov_d_graham_convex_hull {
 
-class IskhakovDRunGrahamConvexHullSEQ : public BaseTask {
+class IskhakovDGrahamConvexHullSEQ : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
-  explicit IskhakovDRunGrahamConvexHullSEQ(const InType &in);
+  explicit IskhakovDGrahamConvexHullSEQ(const InType &in);
 
  private:
   bool ValidationImpl() override;

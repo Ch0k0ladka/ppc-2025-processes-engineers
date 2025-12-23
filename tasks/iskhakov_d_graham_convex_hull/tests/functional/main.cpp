@@ -19,7 +19,7 @@
 
 namespace iskhakov_d_graham_convex_hull {
 
-class IskhakovDRunGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     (void)test_param;
@@ -137,22 +137,21 @@ const std::array<TestType, 11> kTestParam = {
                                       {-2.5, 2.5},
                                       {-1.2, 1.2}})};
 
-const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDRunGrahamConvexHullMPI, InType>(
+const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDGrahamConvexHullMPI, InType>(
                                                kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull),
-                                           ppc::util::AddFuncTask<IskhakovDRunGrahamConvexHullSEQ, InType>(
+                                           ppc::util::AddFuncTask<IskhakovDGrahamConvexHullSEQ, InType>(
                                                kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName =
-    IskhakovDRunGrahamConvexHullFuncTests::PrintFuncTestName<IskhakovDRunGrahamConvexHullFuncTests>;
+const auto kPerfTestName = IskhakovDGrahamConvexHullFuncTests::PrintFuncTestName<IskhakovDGrahamConvexHullFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(GrahamConvexHullFuncTests, IskhakovDRunGrahamConvexHullFuncTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(GrahamConvexHullFuncTests, IskhakovDGrahamConvexHullFuncTests, kGtestValues, kPerfTestName);
 
-TEST_P(IskhakovDRunGrahamConvexHullFuncTests, RunFuncTests) {
+TEST_P(IskhakovDGrahamConvexHullFuncTests, RunFuncTests) {
   ExecuteTest(GetParam());
 }
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDRunGrahamConvexHullFuncTests);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDGrahamConvexHullFuncTests);
 
 }  // namespace iskhakov_d_graham_convex_hull

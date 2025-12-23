@@ -27,7 +27,7 @@ struct PairHash {
 };
 }  // namespace
 
-class IskhakovDRunGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
+class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
     std::random_device rd;
@@ -94,20 +94,20 @@ class IskhakovDRunGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests
   InType input_data_;
 };
 
-TEST_P(IskhakovDRunGrahamConvexHullPerfTests, RunPerfModes) {
+TEST_P(IskhakovDGrahamConvexHullPerfTests, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, IskhakovDRunGrahamConvexHullMPI, IskhakovDRunGrahamConvexHullSEQ>(
+    ppc::util::MakeAllPerfTasks<InType, IskhakovDGrahamConvexHullMPI, IskhakovDGrahamConvexHullSEQ>(
         PPC_SETTINGS_iskhakov_d_graham_convex_hull);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
-const auto kPerfTestName = IskhakovDRunGrahamConvexHullPerfTests::CustomPerfTestName;
+const auto kPerfTestName = IskhakovDGrahamConvexHullPerfTests::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDRunGrahamConvexHullPerfTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDGrahamConvexHullPerfTests, kGtestValues, kPerfTestName);
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDRunGrahamConvexHullPerfTests);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDGrahamConvexHullPerfTests);
 
 }  // namespace iskhakov_d_graham_convex_hull

@@ -15,21 +15,21 @@ namespace {
 constexpr double kEpsilon = 1e-9;
 }  // namespace
 
-IskhakovDRunGrahamConvexHullMPI::IskhakovDRunGrahamConvexHullMPI(const InType &in) {
+IskhakovDGrahamConvexHullMPI::IskhakovDGrahamConvexHullMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::vector<Point>();
 }
 
-bool IskhakovDRunGrahamConvexHullMPI::ValidationImpl() {
+bool IskhakovDGrahamConvexHullMPI::ValidationImpl() {
   return GetInput().size() >= 3;
 }
 
-bool IskhakovDRunGrahamConvexHullMPI::PreProcessingImpl() {
+bool IskhakovDGrahamConvexHullMPI::PreProcessingImpl() {
   return true;
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::GrahamScan(const std::vector<Point> &input_points) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::GrahamScan(const std::vector<Point> &input_points) {
   std::vector<Point> points = input_points;
   if (points.size() < 3) {
     return points;
@@ -69,8 +69,8 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::GrahamScan(const std::vector
   return hull;
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::MergeHulls(const std::vector<Point> &hull1,
-                                                               const std::vector<Point> &hull2) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::MergeHulls(const std::vector<Point> &hull1,
+                                                            const std::vector<Point> &hull2) {
   if (hull1.empty()) {
     return hull2;
   }
@@ -98,7 +98,7 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::MergeHulls(const std::vector
   return GrahamScan(combined_hull);
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::PrepareAndDistributeData(int world_rank, int world_size) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::PrepareAndDistributeData(int world_rank, int world_size) {
   std::vector<Point> all_points;
   int points_count = 0;
 
@@ -184,10 +184,10 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::PrepareAndDistributeData(int
   return local_points;
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BuildLocalHull([[maybe_unused]] int world_rank,
-                                                                   const std::vector<double> &local_x,
-                                                                   const std::vector<double> &local_y,
-                                                                   int my_point_count) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::BuildLocalHull([[maybe_unused]] int world_rank,
+                                                                const std::vector<double> &local_x,
+                                                                const std::vector<double> &local_y,
+                                                                int my_point_count) {
   std::vector<Point> local_hull;
   if (my_point_count > 0) {
     std::vector<Point> local_points;
@@ -206,8 +206,8 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BuildLocalHull([[maybe_unuse
   return local_hull;
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::MergeHullsBinaryTree(int world_rank, int world_size,
-                                                                         const std::vector<Point> &local_hull) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::MergeHullsBinaryTree(int world_rank, int world_size,
+                                                                      const std::vector<Point> &local_hull) {
   std::vector<Point> current_hull = local_hull;
 
   int active_procs = 1;
@@ -295,9 +295,8 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::MergeHullsBinaryTree(int wor
   return current_hull;
 }
 
-std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BroadcastFinalResult(int world_rank,
-                                                                         [[maybe_unused]] int world_size,
-                                                                         const std::vector<Point> &final_hull_root) {
+std::vector<Point> IskhakovDGrahamConvexHullMPI::BroadcastFinalResult(int world_rank, [[maybe_unused]] int world_size,
+                                                                      const std::vector<Point> &final_hull_root) {
   int final_hull_size = 0;
 
   if (world_rank == 0) {
@@ -338,7 +337,7 @@ std::vector<Point> IskhakovDRunGrahamConvexHullMPI::BroadcastFinalResult(int wor
   return final_result;
 }
 
-bool IskhakovDRunGrahamConvexHullMPI::RunImpl() {
+bool IskhakovDGrahamConvexHullMPI::RunImpl() {
   int world_size = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
@@ -367,7 +366,7 @@ bool IskhakovDRunGrahamConvexHullMPI::RunImpl() {
   return true;
 }
 
-bool IskhakovDRunGrahamConvexHullMPI::PostProcessingImpl() {
+bool IskhakovDGrahamConvexHullMPI::PostProcessingImpl() {
   return true;
 }
 

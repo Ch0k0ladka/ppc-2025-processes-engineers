@@ -5,12 +5,12 @@
 
 namespace iskhakov_d_graham_convex_hull {
 
-class IskhakovDRunGrahamConvexHullMPI : public BaseTask {
+class IskhakovDGrahamConvexHullMPI : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kMPI;
   }
-  explicit IskhakovDRunGrahamConvexHullMPI(const InType &in);
+  explicit IskhakovDGrahamConvexHullMPI(const InType &in);
 
  private:
   bool ValidationImpl() override;

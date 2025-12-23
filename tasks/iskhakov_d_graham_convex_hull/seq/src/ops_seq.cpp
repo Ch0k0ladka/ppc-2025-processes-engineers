@@ -13,21 +13,21 @@ namespace {
 constexpr double kEpsilon = 1e-9;
 }  // namespace
 
-IskhakovDRunGrahamConvexHullSEQ::IskhakovDRunGrahamConvexHullSEQ(const InType &in) {
+IskhakovDGrahamConvexHullSEQ::IskhakovDGrahamConvexHullSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::vector<Point>();
 }
 
-bool IskhakovDRunGrahamConvexHullSEQ::ValidationImpl() {
+bool IskhakovDGrahamConvexHullSEQ::ValidationImpl() {
   return GetInput().size() >= 3;
 }
 
-bool IskhakovDRunGrahamConvexHullSEQ::PreProcessingImpl() {
+bool IskhakovDGrahamConvexHullSEQ::PreProcessingImpl() {
   return true;
 }
 
-bool IskhakovDRunGrahamConvexHullSEQ::RunImpl() {
+bool IskhakovDGrahamConvexHullSEQ::RunImpl() {
   std::vector<Point> points = GetInput();
   if (points.size() < 3) {
     GetOutput() = points;
@@ -117,7 +117,7 @@ bool IskhakovDRunGrahamConvexHullSEQ::RunImpl() {
   return true;
 }
 
-bool IskhakovDRunGrahamConvexHullSEQ::PostProcessingImpl() {
+bool IskhakovDGrahamConvexHullSEQ::PostProcessingImpl() {
   return true;
 }
 
