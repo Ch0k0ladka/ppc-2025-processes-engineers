@@ -18,14 +18,13 @@ class IskhakovDGrahamConvexHullMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  std::vector<Point> GrahamScan(const std::vector<Point> &points);
+  std::vector<Point> GrahamScan(const std::vector<Point> &input_points);
   std::vector<Point> MergeHulls(const std::vector<Point> &hull1, const std::vector<Point> &hull2);
-
-  std::vector<Point> PrepareAndDistributeData(int world_rank, int world_size);
-  std::vector<Point> BuildLocalHull(int world_rank, const std::vector<double> &local_x,
-                                    const std::vector<double> &local_y, int my_point_count);
-  std::vector<Point> MergeHullsBinaryTree(int world_rank, int world_size, const std::vector<Point> &local_hull);
-  std::vector<Point> BroadcastFinalResult(int world_rank, int world_size, const std::vector<Point> &final_hull_root);
+  
+  int CalculateOptimalActiveProcs(int points_count, int world_size);
+  std::vector<Point> PrepareAndDistributeData(int world_rank, int world_size, int &optimal_active_procs_out);
+  std::vector<Point> MergeHullsBinaryTree(int world_rank, const std::vector<Point> &local_hull, int optimal_active_procs);
+  std::vector<Point> BroadcastFinalResult(int world_rank, const std::vector<Point> &final_hull_root);
 };
 
 }  // namespace  iskhakov_d_graham_convex_hull
