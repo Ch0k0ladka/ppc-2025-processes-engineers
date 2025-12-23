@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <numeric>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -21,13 +24,13 @@ class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<In
   static std::string PrintTestParam(const TestType &test_param) {
     (void)test_param;
     static int test_counter = 0;
-    ++test_counter;
+    test_counter++;
     return "Test_" + std::to_string(test_counter);
   }
 
  protected:
   void SetUp() override {
-    const TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const auto &[input, expected_result] = params;
 
     input_data_ = input;
@@ -115,7 +118,6 @@ const std::array<TestType, 16> kTestParam = {
                                       {0.0, 3.0},  {-0.93, 2.85},  {-1.77, 2.43},  {-2.43, 1.77},  {-2.85, 0.93},
                                       {-3.0, 0.0}, {-2.85, -0.93}, {-2.43, -1.77}, {-1.77, -2.43}, {-0.93, -2.85},
                                       {0.0, -3.0}, {0.93, -2.85},  {1.77, -2.43},  {2.43, -1.77},  {2.85, -0.93}}),
-
     CreateTestData(std::vector<Point>{{0.0, 4.0},  {1.2, 1.2},  {4.0, 0.0},  {1.2, -1.2},  {0.0, -4.0},  {-1.2, -1.2},
                                       {-4.0, 0.0}, {-1.2, 1.2}, {2.5, 2.5},  {2.5, -2.5},  {-2.5, -2.5}, {-2.5, 2.5},
                                       {0.0, 2.0},  {1.0, 1.0},  {2.0, 0.0},  {1.0, -1.0},  {0.0, -2.0},  {-1.0, -1.0},
@@ -136,17 +138,13 @@ const std::array<TestType, 16> kTestParam = {
 
     CreateTestData(std::vector<Point>{{5.0, 5.0}, {10.0, 10.0}, {0.0, 10.0}, {5.0, 15.0}},
                    std::vector<Point>{{5.0, 5.0}, {10.0, 10.0}, {5.0, 15.0}, {0.0, 10.0}}),
-
     CreateTestData(std::vector<Point>{{0.0, 0.0}, {3.0, 0.0}, {3.0, 3.0}, {0.0, 3.0}, {1.0, 1.0}, {2.0, 2.0}},
                    std::vector<Point>{{0.0, 0.0}, {3.0, 0.0}, {3.0, 3.0}, {0.0, 3.0}}),
-
     CreateTestData(
         std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}, {2.0, 2.0}, {1.0, 3.0}, {3.0, 1.0}},
         std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}}),
-
     CreateTestData(std::vector<Point>{{0.0, 0.0}, {2.0, 0.0}, {4.0, 0.0}, {2.0, 2.0}, {4.0, 4.0}, {0.0, 4.0}},
                    std::vector<Point>{{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}}),
-
     CreateTestData(std::vector<Point>{{1.0, 1.0}, {2.0, 2.0}, {3.0, 3.0}, {4.0, 4.0}, {5.0, 5.0}},
                    std::vector<Point>{{1.0, 1.0}, {5.0, 5.0}})};
 

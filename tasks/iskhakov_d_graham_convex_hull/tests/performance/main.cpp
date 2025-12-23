@@ -19,7 +19,6 @@ constexpr std::size_t kPointCount = 1000000;
 constexpr int kCoordinateMin = 0;
 constexpr int kCoordinateMax = 10000;
 constexpr int kMaxGenerationAttempts = 100;
-constexpr double kBoundEpsilon = 1e-6;
 
 struct PairHash {
   std::size_t operator()(const std::pair<int, int> &p) const noexcept {
@@ -46,10 +45,10 @@ class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<In
       bool point_added = false;
 
       while (attempts < kMaxGenerationAttempts && !point_added) {
-        const int x = dist(gen);
-        const int y = dist(gen);
+        int x = dist(gen);
+        int y = dist(gen);
 
-        const auto [iter, inserted] = unique_points.emplace(x, y);
+        auto [iter, inserted] = unique_points.emplace(x, y);
         if (inserted) {
           points.emplace_back(static_cast<double>(x), static_cast<double>(y));
           point_added = true;
@@ -58,8 +57,8 @@ class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<In
       }
 
       if (!point_added) {
-        const int x = dist(gen);
-        const int y = dist(gen);
+        int x = dist(gen);
+        int y = dist(gen);
         points.emplace_back(static_cast<double>(x), static_cast<double>(y));
       }
     }
@@ -76,9 +75,10 @@ class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<In
       return false;
     }
 
+    constexpr double kEpsilon = 1e-6;
     for (const auto &point : output_data) {
-      if (point.x < kCoordinateMin - kBoundEpsilon || point.x > kCoordinateMax + kBoundEpsilon ||
-          point.y < kCoordinateMin - kBoundEpsilon || point.y > kCoordinateMax + kBoundEpsilon) {
+      if (point.x < kCoordinateMin - kEpsilon || point.x > kCoordinateMax + kEpsilon ||
+          point.y < kCoordinateMin - kEpsilon || point.y > kCoordinateMax + kEpsilon) {
         return false;
       }
     }
@@ -106,7 +106,7 @@ const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
 const auto kPerfTestName = IskhakovDGrahamConvexHullPerfTests::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDGrahamConvexHullPerfsTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunModeTests, IskhakovDGrahamConvexHullPerfTests, kGtestValues, kPerfTestName);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDGrahamConvexHullPerfTests);
 
