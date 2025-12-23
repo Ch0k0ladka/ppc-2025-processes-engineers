@@ -2,13 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
-#include <cstdint>
-#include <numeric>
-#include <stdexcept>
 #include <string>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "iskhakov_d_graham_convex_hull/common/include/common.hpp"
@@ -19,33 +16,45 @@
 
 namespace iskhakov_d_graham_convex_hull {
 
-class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+namespace {
+
+constexpr double kEpsilon = 1e-9;
+
+constexpr TestType CreateTestData(const InType& input,
+                                  const OutType& expected) {
+  return std::make_tuple(input, expected);
+}
+
+}  // namespace
+
+class IskhakovDGrahamConvexHullFuncTests
+    : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
-  static std::string PrintTestParam(const TestType &test_param) {
-    (void)test_param;
-    static int test_counter = 0;
-    test_counter++;
+  static std::string PrintTestParam(const TestType&) {
+    static std::size_t test_counter = 0;
+    ++test_counter;
     return "Test_" + std::to_string(test_counter);
   }
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    const auto &[input, expected_result] = params;
+    const TestType& params =
+        std::get<static_cast<std::size_t>(
+            ppc::util::GTestParamIndex::kTestParams)>(GetParam());
 
-    input_data_ = input;
-    expected_result_ = expected_result;
+    input_data_ = std::get<0>(params);
   }
 
-  bool CheckTestOutputData(OutType &output_data) final {
+  bool CheckTestOutputData(OutType& output_data) final {
     if (output_data.empty()) {
       return false;
     }
 
-    for (const auto &point : output_data) {
+    for (const Point& point : output_data) {
       bool found = false;
-      for (const auto &input_point : input_data_) {
-        if (std::abs(point.x - input_point.x) < 1e-9 && std::abs(point.y - input_point.y) < 1e-9) {
+      for (const Point& input_point : input_data_) {
+        if (std::abs(point.x - input_point.x) < kEpsilon &&
+            std::abs(point.y - input_point.y) < kEpsilon) {
           found = true;
           break;
         }
@@ -54,7 +63,6 @@ class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<In
         return false;
       }
     }
-
     return true;
   }
 
@@ -64,16 +72,7 @@ class IskhakovDGrahamConvexHullFuncTests : public ppc::util::BaseRunFuncTests<In
 
  private:
   InType input_data_;
-  OutType expected_result_;
 };
-
-namespace {
-
-TestType CreateTestData(const std::vector<Point> &input, const std::vector<Point> &expected) {
-  return std::make_tuple(input, expected);
-}
-
-}  // namespace
 
 const std::array<TestType, 16> kTestParam = {
     CreateTestData(std::vector<Point>{{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}},
@@ -148,21 +147,30 @@ const std::array<TestType, 16> kTestParam = {
     CreateTestData(std::vector<Point>{{1.0, 1.0}, {2.0, 2.0}, {3.0, 3.0}, {4.0, 4.0}, {5.0, 5.0}},
                    std::vector<Point>{{1.0, 1.0}, {5.0, 5.0}})};
 
-const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<IskhakovDGrahamConvexHullMPI, InType>(
-                                               kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull),
-                                           ppc::util::AddFuncTask<IskhakovDGrahamConvexHullSEQ, InType>(
-                                               kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull));
+const auto kTestTasksList =
+    std::tuple_cat(
+        ppc::util::AddFuncTask<IskhakovDGrahamConvexHullMPI, InType>(
+            kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull),
+        ppc::util::AddFuncTask<IskhakovDGrahamConvexHullSEQ, InType>(
+            kTestParam, PPC_SETTINGS_iskhakov_d_graham_convex_hull));
 
-const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
+const auto kGtestValues =
+    ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = IskhakovDGrahamConvexHullFuncTests::PrintFuncTestName<IskhakovDGrahamConvexHullFuncTests>;
+const auto kTestName =
+    IskhakovDGrahamConvexHullFuncTests::
+        PrintFuncTestName<IskhakovDGrahamConvexHullFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(GrahamConvexHullFuncTests, IskhakovDGrahamConvexHullFuncTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(GrahamConvexHullFuncTests,
+                         IskhakovDGrahamConvexHullFuncTests,
+                         kGtestValues,
+                         kTestName);
 
 TEST_P(IskhakovDGrahamConvexHullFuncTests, RunFuncTests) {
   ExecuteTest(GetParam());
 }
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IskhakovDGrahamConvexHullFuncTests);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    IskhakovDGrahamConvexHullFuncTests);
 
 }  // namespace iskhakov_d_graham_convex_hull
