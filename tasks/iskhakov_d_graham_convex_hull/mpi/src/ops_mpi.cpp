@@ -21,6 +21,13 @@ constexpr int kTagSize = 0;
 constexpr int kTagX = 1;
 constexpr int kTagY = 2;
 
+int CalculateLocalOrSendcount(int index, int active_procs, int base_count, int remainder) {
+  if (index < active_procs) {
+    return base_count + (index < remainder ? 1 : 0);
+  }
+  return 0;
+}
+
 int ComputeOrientation(const Point &p, const Point &q, const Point &r) {
   const double value = ((q.y - p.y) * (r.x - q.x)) - ((q.x - p.x) * (r.y - q.y));
 
@@ -169,7 +176,7 @@ std::vector<Point> IskhakovDGrahamConvexHullMPI::PrepareAndDistributeData(int wo
   const int base_count = total_points / active_procs;
   const int remainder = total_points % active_procs;
 
-  const int local_count = is_active ? base_count + (world_rank < remainder ? 1 : 0) : 0;
+  const int local_count = is_active ? CalculateLocalOrSendcount(world_rank, active_procs, base_count, remainder) : 0;
 
   std::vector<int> sendcounts(world_size, 0);
   std::vector<int> displs(world_size, 0);
@@ -177,7 +184,7 @@ std::vector<Point> IskhakovDGrahamConvexHullMPI::PrepareAndDistributeData(int wo
   if (world_rank == 0) {
     int offset = 0;
     for (int i = 0; i < world_size; ++i) {
-      sendcounts[i] = (i < active_procs) ? base_count + (i < remainder ? 1 : 0) : 0;
+      sendcounts[i] = CalculateLocalOrSendcount(i, active_procs, base_count, remainder);
       displs[i] = offset;
       offset += sendcounts[i];
     }

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <random>
 #include <unordered_set>
 #include <utility>
@@ -73,7 +72,7 @@ class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<In
     if (output_data.empty() || output_data.size() > kPointCount) {
       return false;
     }
-    return std::all_of(output_data.begin(), output_data.end(), [](const Point &point) {
+    return std::ranges::all_of(output_data, [](const Point &point) {
       return point.x >= static_cast<double>(kCoordinateMin) - kEpsilon &&
              point.x <= static_cast<double>(kCoordinateMax) + kEpsilon &&
              point.y >= static_cast<double>(kCoordinateMin) - kEpsilon &&
