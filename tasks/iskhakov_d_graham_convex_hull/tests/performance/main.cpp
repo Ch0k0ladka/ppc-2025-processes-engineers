@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <random>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "iskhakov_d_graham_convex_hull/common/include/common.hpp"
@@ -19,7 +22,6 @@ constexpr int kCoordinateMin = 0;
 constexpr int kCoordinateMax = 10'000;
 constexpr int kMaxGenerationAttempts = 100;
 constexpr double kEpsilon = 1e-6;
-constexpr std::uint32_t kRandomSeed = 42U;
 
 struct PairHash {
   std::size_t operator()(const std::pair<int, int> &p) const noexcept {
@@ -34,7 +36,8 @@ struct PairHash {
 class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    std::mt19937 gen{kRandomSeed};
+    std::random_device rd;
+    std::mt19937 gen{rd()};
     std::uniform_int_distribution<int> dist(kCoordinateMin, kCoordinateMax);
 
     std::vector<Point> points;
@@ -70,17 +73,12 @@ class IskhakovDGrahamConvexHullPerfTests : public ppc::util::BaseRunPerfTests<In
     if (output_data.empty() || output_data.size() > kPointCount) {
       return false;
     }
-
-    for (const Point &point : output_data) {
-      if (point.x < static_cast<double>(kCoordinateMin) - kEpsilon ||
-          point.x > static_cast<double>(kCoordinateMax) + kEpsilon ||
-          point.y < static_cast<double>(kCoordinateMin) - kEpsilon ||
-          point.y > static_cast<double>(kCoordinateMax) + kEpsilon) {
-        return false;
-      }
-    }
-
-    return true;
+    return std::all_of(output_data.begin(), output_data.end(), [](const Point &point) {
+      return point.x >= static_cast<double>(kCoordinateMin) - kEpsilon &&
+             point.x <= static_cast<double>(kCoordinateMax) + kEpsilon &&
+             point.y >= static_cast<double>(kCoordinateMin) - kEpsilon &&
+             point.y <= static_cast<double>(kCoordinateMax) + kEpsilon;
+    });
   }
 
   InType GetTestInputData() final {

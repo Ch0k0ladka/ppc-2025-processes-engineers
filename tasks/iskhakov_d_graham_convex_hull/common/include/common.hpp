@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include <string>
+#include <cstdlib>
 #include <tuple>
 #include <vector>
 
@@ -10,9 +10,10 @@
 namespace iskhakov_d_graham_convex_hull {
 
 struct Point {
-  double x, y;
+  double x = 0.0;
+  double y = 0.0;
 
-  Point(double x_coord = 0, double y_coord = 0) : x(x_coord), y(y_coord) {}
+  explicit Point(double x_coord = 0, double y_coord = 0) : x(x_coord), y(y_coord) {}
 
   bool operator<(const Point &other) const {
     return std::tie(y, x) < std::tie(other.y, other.x);

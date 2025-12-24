@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "iskhakov_d_graham_convex_hull/common/include/common.hpp"
@@ -18,6 +20,61 @@ constexpr int kMinPointsPerProcess = 10;
 constexpr int kTagSize = 0;
 constexpr int kTagX = 1;
 constexpr int kTagY = 2;
+
+int ComputeOrientation(const Point &p, const Point &q, const Point &r) {
+  const double value = ((q.y - p.y) * (r.x - q.x)) - ((q.x - p.x) * (r.y - q.y));
+
+  if (std::abs(value) < kEpsilon) {
+    return 0;
+  }
+  return (value > 0) ? 1 : 2;
+}
+
+double ComputeDistanceSquared(const Point &a, const Point &b) {
+  return ((a.x - b.x) * (a.x - b.x)) + ((a.y - b.y) * (a.y - b.y));
+}
+
+std::size_t FindMinPointIndex(const std::vector<Point> &points) {
+  std::size_t min_index = 0;
+  for (std::size_t i = 1; i < points.size(); ++i) {
+    if (points[i].y < points[min_index].y ||
+        (std::abs(points[i].y - points[min_index].y) < kEpsilon && points[i].x < points[min_index].x)) {
+      min_index = i;
+    }
+  }
+  return min_index;
+}
+
+void FilterCollinearPoints(std::vector<Point> &points, const Point &pivot) {
+  std::size_t unique_count = 1;
+  for (std::size_t i = 1; i < points.size(); ++i) {
+    while (i + 1 < points.size() && ComputeOrientation(pivot, points[i], points[i + 1]) == 0) {
+      ++i;
+    }
+    points[unique_count++] = points[i];
+  }
+  points.resize(unique_count);
+}
+
+void BuildConvexHull(const std::vector<Point> &points, std::vector<Point> &hull) {
+  hull.clear();
+  if (points.size() < 3) {
+    hull = points;
+    return;
+  }
+
+  hull.reserve(points.size());
+  hull.push_back(points[0]);
+  hull.push_back(points[1]);
+  hull.push_back(points[2]);
+
+  for (std::size_t i = 3; i < points.size(); ++i) {
+    while (hull.size() >= 2 && ComputeOrientation(hull[hull.size() - 2], hull[hull.size() - 1], points[i]) != 2) {
+      hull.pop_back();
+    }
+    hull.push_back(points[i]);
+  }
+}
 
 }  // namespace
 
@@ -42,62 +99,24 @@ std::vector<Point> IskhakovDGrahamConvexHullMPI::GrahamScan(const std::vector<Po
 
   std::vector<Point> points{input_points};
 
-  std::size_t min_index = 0;
-  for (std::size_t i = 1; i < points.size(); ++i) {
-    if (points[i].y < points[min_index].y ||
-        (std::abs(points[i].y - points[min_index].y) < kEpsilon && points[i].x < points[min_index].x)) {
-      min_index = i;
-    }
-  }
-
+  const std::size_t min_index = FindMinPointIndex(points);
   std::swap(points[0], points[min_index]);
   const Point pivot = points[0];
 
-  const auto orientation = [](const Point &p, const Point &q, const Point &r) -> int {
-    const double value = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
-
-    if (std::abs(value) < kEpsilon) {
-      return 0;
-    }
-    return (value > 0) ? 1 : 2;
-  };
-
-  std::sort(points.begin() + 1, points.end(), [&pivot, &orientation](const Point &a, const Point &b) {
-    const int orient = orientation(pivot, a, b);
+  std::sort(points.begin() + 1, points.end(), [&pivot](const Point &a, const Point &b) {
+    const int orient = ComputeOrientation(pivot, a, b);
     if (orient == 0) {
-      const double dist_a = (a.x - pivot.x) * (a.x - pivot.x) + (a.y - pivot.y) * (a.y - pivot.y);
-      const double dist_b = (b.x - pivot.x) * (b.x - pivot.x) + (b.y - pivot.y) * (b.y - pivot.y);
+      const double dist_a = ComputeDistanceSquared(a, pivot);
+      const double dist_b = ComputeDistanceSquared(b, pivot);
       return dist_a < dist_b;
     }
     return orient == 2;
   });
 
-  std::size_t unique_count = 1;
-  for (std::size_t i = 1; i < points.size(); ++i) {
-    while (i + 1 < points.size() && orientation(pivot, points[i], points[i + 1]) == 0) {
-      ++i;
-    }
-    points[unique_count++] = points[i];
-  }
-
-  points.resize(unique_count);
-
-  if (points.size() < 3) {
-    return points;
-  }
+  FilterCollinearPoints(points, pivot);
 
   std::vector<Point> hull;
-  hull.reserve(points.size());
-  hull.push_back(points[0]);
-  hull.push_back(points[1]);
-  hull.push_back(points[2]);
-
-  for (std::size_t i = 3; i < points.size(); ++i) {
-    while (hull.size() >= 2 && orientation(hull[hull.size() - 2], hull[hull.size() - 1], points[i]) != 2) {
-      hull.pop_back();
-    }
-    hull.push_back(points[i]);
-  }
+  BuildConvexHull(points, hull);
 
   return hull;
 }
@@ -185,7 +204,6 @@ std::vector<Point> IskhakovDGrahamConvexHullMPI::PrepareAndDistributeData(int wo
   if (local_count > 0) {
     MPI_Scatterv(all_x.data(), sendcounts.data(), displs.data(), MPI_DOUBLE, local_x.data(), local_count, MPI_DOUBLE, 0,
                  MPI_COMM_WORLD);
-
     MPI_Scatterv(all_y.data(), sendcounts.data(), displs.data(), MPI_DOUBLE, local_y.data(), local_count, MPI_DOUBLE, 0,
                  MPI_COMM_WORLD);
   }
@@ -227,7 +245,6 @@ std::vector<Point> IskhakovDGrahamConvexHullMPI::MergeHullsBinaryTree(int world_
 
       MPI_Sendrecv(my_x.data(), my_size, MPI_DOUBLE, partner, kTagX, remote_x.data(), partner_size, MPI_DOUBLE, partner,
                    kTagX, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
       MPI_Sendrecv(my_y.data(), my_size, MPI_DOUBLE, partner, kTagY, remote_y.data(), partner_size, MPI_DOUBLE, partner,
                    kTagY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
